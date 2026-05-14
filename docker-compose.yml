@@ -1,0 +1,25 @@
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883" 
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf 
+    restart: unless-stopped
+
+  telemetry-db:
+    image: postgres:15
+    container_name: telemetry-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: fleet_data
+    volumes:
+      - pgdata:/var/lib/postgresql/data 
+    restart: unless-stopped
+
+volumes:
+  pgdata:
