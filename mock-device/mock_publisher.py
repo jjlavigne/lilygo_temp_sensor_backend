@@ -24,7 +24,10 @@ def generate_mock_data():
         # Generate a standard ISO-8601 timestamp for the database
         "timestamp": datetime.now(timezone.utc).isoformat(),
         # Produce truck target temperature range (2 to 6 degrees Celsius)
+        # normal temp alert
         "temperature_c": round(random.uniform(2.0, 6.0), 2),
+        # high temp alert
+        #"temperature_c": round(random.uniform(8.5, 10.0), 2),
         # GPS Coordinates (roughly Seattle area)
         "lat": round(random.uniform(47.5, 47.7), 6),
         "lon": round(random.uniform(-122.4, -122.2), 6),

@@ -6,6 +6,7 @@ services:
       - "1883:1883" 
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf 
+      - ./pwfile:/mosquitto/config/pwfile
     restart: unless-stopped
 
   telemetry-db:
@@ -21,5 +22,17 @@ services:
       - pgdata:/var/lib/postgresql/data 
     restart: unless-stopped
 
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - telemetry-db
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  grafana-storage:

@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "fleet-telemetry-firmware",
+			"path": "firmware/fleet-telemetry-firmware"
+		}
+	],
+	"settings": {
+		"sqltools.connections": [
+			{
+				"ssh": "Disabled",
+				"previewLimit": 50,
+				"server": "localhost",
+				"port": 5432,
+				"driver": "PostgreSQL",
+				"name": "Fleet DB",
+				"database": "fleet_data",
+				"username": "admin"
+			}
+		]
+	}
+}
