@@ -83,7 +83,8 @@ def on_message(client, userdata, msg):
         # Value Boundary Checking (Checks the physical limits so we don't add an invalid temp to the DB) 
         # (Must change threshold after discussing with company what they should be)
         temp = float(payload['temperature_c'])
-        if not (-40.0 <= temp <= 60.0): # Assuming cold chain transportation limits
+        # if not (-23.0 <= temp <= -18.0): **Switch to this threshold for actual industry threshold**
+        if not (-40.0 <= temp <= 101.0): # Assuming cold chain transportation limits
             print(f"Dropped message: Abnormal temperature detected ({temp}°C). Please check Temperature Sensor.")
             return
 
