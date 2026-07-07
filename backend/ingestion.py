@@ -74,7 +74,8 @@ def on_message(client, userdata, msg):
         # --- ADDED VALIDATION BLOCK FOR SECURITY STARTS HERE ---
 
         # Structural Validation. Checks if the incoming JSON actually contains all necessary data (Ensure keys exist)
-        required_keys = ['device_id', 'temperature_c', 'lat', 'lon', 'battery_pct']
+        # required_keys = ['device_id', 'temperature_c', 'lat', 'lon', 'battery_pct']
+        required_keys = ['device_id', 'temperature_c']
         # If the LilyGO glitches and sends half a payload, this blocks it from ruining your database schema 
         if not all(k in payload for k in required_keys):
             print("Dropped message: Missing required JSON keys.")
@@ -90,6 +91,10 @@ def on_message(client, userdata, msg):
 
         # --- VALIDATION BLOCK ENDS HERE ---
 
+    
+        lat = payload.get('lat')
+        lon = payload.get('lon')
+        battery_pct = payload.get('battery_pct')
 
         # If it passes validation, proceed with logging and insertion
         print(f"Received valid data from {payload['device_id']}: {payload['temperature_c']}°C")
@@ -103,9 +108,9 @@ def on_message(client, userdata, msg):
             payload['device_id'],
             datetime.datetime.now(datetime.timezone.utc),
             payload['temperature_c'],
-            payload['lat'],
-            payload['lon'],
-            payload['battery_pct']
+            lat,
+            lon,
+            battery_pct
         ))
         db_conn.commit()
         
