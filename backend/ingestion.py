@@ -97,7 +97,8 @@ def on_message(client, userdata, msg):
         battery_pct = payload.get('battery_pct')
 
         # If it passes validation, proceed with logging and insertion
-        print(f"Received valid data from {payload['device_id']}: {payload['temperature_c']}°C")
+        # print(f"Received valid data from {payload['device_id']}: {payload['temperature_c']}°C")
+        print(f"Received valid data from {payload['device_id']} | Temp: {payload['temperature_c']}°C | Battery: {payload.get('battery_pct')}%")
 
         # 2. Insert the data safely to prevent SQL injection
         insert_query = """
