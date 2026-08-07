@@ -231,7 +231,10 @@ void loop() {
     // Key names must match backend/ingestion.py exactly. Temperature is sent in
     // CELSIUS: the database stores Celsius and Grafana converts for display.
     // Do not send Fahrenheit here -- it would be stored as if it were Celsius.
-    JsonDocument doc;
+    // StaticJsonDocument, not the bare JsonDocument of ArduinoJson 7 -- this
+    // project pins ^6.21.3, where JsonDocument alone does not exist. This form
+    // compiles under both 6 and 7, so it survives a future library bump.
+    StaticJsonDocument<256> doc;
     doc["device_id"]     = DEVICE_ID;
     doc["temperature_c"] = liveTempC;
     doc["battery_pct"]   = batteryPct;
