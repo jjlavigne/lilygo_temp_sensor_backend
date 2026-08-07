@@ -30,6 +30,7 @@ This script only ever INSERTs and CREATEs. It never drops tables or deletes rows
 
 import argparse
 import json
+import os
 import random
 import sys
 import time
@@ -40,16 +41,18 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 # --- Configuration (matches backend/ingestion.py) ---
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
-MQTT_TOPIC = "fleet/telemetry"
-MQTT_USER = "fleet_admin"
-MQTT_PASS = "Plymouth2026!"
+# Environment first, localhost default. Same file runs on the VM or in a container.
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "fleet/telemetry")
+MQTT_USER = os.getenv("MQTT_USER", "fleet_admin")
+MQTT_PASS = os.getenv("MQTT_PASS", "Plymouth2026!")
 
-DB_HOST = "localhost"
-DB_NAME = "fleet_data"
-DB_USER = "admin"
-DB_PASSWORD = "password123"
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "fleet_data")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password123")
 
 # The physical prototype board. Registered so it inherits Plymouth's alert limits
 # and shows up on the dashboard, but never simulated.
@@ -67,15 +70,22 @@ INGEST_MAX_C = 101.0
 # Changing PUBLISH_INTERVAL_S automatically updates the staleness alert too,
 # because expected_interval_s is written to the devices table from it.
 
-PUBLISH_INTERVAL_S = 15        # how often each simulated sensor reports
+PUBLISH_INTERVAL_S = int(os.getenv("PUBLISH_INTERVAL_S", "300"))
+                               # 5 minutes. Matches how real reefer telemetry
+                               # actually behaves -- cellular data and battery both
+                               # cost money, so nobody reports every 15 seconds. Also
+                               # keeps the simulated fleet as calm background rather
+                               # than competing with the device being demonstrated.
+                               # 20 sensors at this rate is ~5,800 rows/day, versus
+                               # ~115,000/day at 15s.
 
-REAL_DEVICE_INTERVAL_S = 5     # how often the physical board reports. Faster than
-                               # the simulated fleet on purpose: it is the device
-                               # the audience is watching, so it should react while
-                               # you are still holding it over the water. Keep this
-                               # matched to the delay in your firmware's loop().
-                               # Set to 3600 when the board returns to hourly deep
-                               # sleep for production.
+REAL_DEVICE_INTERVAL_S = int(os.getenv("REAL_DEVICE_INTERVAL_S", "5"))
+                               # The physical board, deliberately 60x faster than the
+                               # simulated fleet: it is the only thing the audience is
+                               # watching change, and it must react while you are
+                               # still holding the probe over the water. Keep matched
+                               # to the delay in your firmware's loop(). Set to 3600
+                               # when the board returns to hourly deep sleep.
 
 # The staleness alert fires when a device has been silent for this many times its
 # expected interval. At 15s that means an alert roughly 45 seconds after a sensor
@@ -175,14 +185,25 @@ class SimulatedDevice:
         self.state = STATE_NORMAL
         self.fail_after_s = None   # seconds into the run before state kicks in
         self.pending_state = None
+        self.recover_at_s = None
 
         # Small per-device GPS jitter so map markers do not stack perfectly.
         self.lat = site["lat"] + random.uniform(-0.02, 0.02)
         self.lon = site["lon"] + random.uniform(-0.02, 0.02)
 
-    def schedule_failure(self, state, after_s):
+    def schedule_failure(self, state, after_s, recover_after_s=None):
+        """
+        Schedule a fault.
+
+        `recover_after_s` is how long it lasts before the unit returns to normal --
+        somebody closes the door, the truck leaves the dead zone. Faults that never
+        recover are realistic for dead hardware, but in a simulator left running they
+        make Grafana re-notify Slack every 5 minutes forever. Recovering faults also
+        give the demo something better to show: the alert firing AND clearing.
+        """
         self.pending_state = state
         self.fail_after_s = after_s
+        self.recover_at_s = (after_s + recover_after_s) if recover_after_s else None
 
     def step(self, elapsed_s, interval_s):
         """Advance the simulation by one interval and return the new temperature."""
@@ -190,6 +211,12 @@ class SimulatedDevice:
         if self.pending_state and elapsed_s >= self.fail_after_s:
             self.state = self.pending_state
             self.pending_state = None
+
+        # Fault clears on its own; Grafana sends a "resolved" notification and stops.
+        if (self.recover_at_s is not None and self.state != STATE_NORMAL
+                and elapsed_s >= self.recover_at_s):
+            self.state = STATE_NORMAL
+            self.recover_at_s = None
 
         if self.state == STATE_SENSOR_FAULT:
             # A disconnected DS18B20 does not drift -- it reads a hard -127.0.
@@ -256,19 +283,26 @@ def apply_scenario(fleet, scenario, forced_failures):
     """
     by_id = {d.device_id: d for d in fleet}
 
+    # Schedules are expressed in multiples of the publish interval so they scale
+    # automatically: at the default 300s these are 10/20/30/40 minutes in, and at a
+    # 15s test interval the same script plays out in under three minutes.
+    I = PUBLISH_INTERVAL_S
+
     if scenario == "demo":
-        # Staggered so the alerts do not all land at once during a presentation.
-        by_id["ALO-SIM-02"].schedule_failure(STATE_DOOR_OPEN, after_s=90)
-        by_id["NIK-SIM-04"].schedule_failure(STATE_SENSOR_FAULT, after_s=180)
-        by_id["SNJ-SIM-01"].schedule_failure(STATE_OFFLINE, after_s=240)
-        by_id["SNJ-SIM-03"].schedule_failure(STATE_OVERCOOL, after_s=300)
+        # Staggered so alerts do not all land at once, and every one recovers.
+        # Plymouth stays clean throughout -- the live board is the star there.
+        by_id["ALO-SIM-02"].schedule_failure(STATE_DOOR_OPEN,    after_s=2 * I, recover_after_s=4 * I)
+        by_id["NIK-SIM-04"].schedule_failure(STATE_SENSOR_FAULT, after_s=4 * I, recover_after_s=3 * I)
+        by_id["SNJ-SIM-01"].schedule_failure(STATE_OFFLINE,      after_s=6 * I, recover_after_s=3 * I)
+        by_id["SNJ-SIM-03"].schedule_failure(STATE_OVERCOOL,     after_s=8 * I, recover_after_s=3 * I)
         by_id["ALO-SIM-05"].battery = 12.0  # low-battery panel has something to show
 
     elif scenario == "chaos":
         for device in random.sample(fleet, k=max(1, len(fleet) // 4)):
             device.schedule_failure(
                 random.choice([STATE_DOOR_OPEN, STATE_OVERCOOL, STATE_SENSOR_FAULT, STATE_OFFLINE]),
-                after_s=random.randint(30, 300),
+                after_s=random.randint(1, 8) * I,
+                recover_after_s=random.randint(2, 5) * I,
             )
 
     # 'healthy' intentionally schedules nothing.

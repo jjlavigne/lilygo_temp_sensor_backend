@@ -1,22 +1,28 @@
 import json
+import os
 import time
 import paho.mqtt.client as mqtt
 import psycopg2
 import datetime
 
 # --- Configuration ---
-# MQTT Broker Settings
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
-MQTT_TOPIC = "fleet/telemetry"
-MQTT_USER = "fleet_admin"
-MQTT_PASS = "Plymouth2026!"
+# Every setting reads from the environment with a localhost default, so the same
+# file works in both places without edits:
+#   * run directly on the VM  -> defaults apply (localhost)
+#   * run inside a container  -> compose supplies the Docker service names,
+#                                because inside a container "localhost" is the
+#                                container itself, not the VM.
+MQTT_BROKER = os.getenv("MQTT_BROKER", "localhost")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "fleet/telemetry")
+MQTT_USER = os.getenv("MQTT_USER", "fleet_admin")
+MQTT_PASS = os.getenv("MQTT_PASS", "Plymouth2026!")
 
-# PostgreSQL Database Settings
-DB_HOST = "localhost"
-DB_NAME = "fleet_data"
-DB_USER = "admin"
-DB_PASSWORD = "password123"
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
+DB_NAME = os.getenv("DB_NAME", "fleet_data")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password123")
 
 # --- Plausibility bounds -- NOT the alert thresholds ---
 # These exist for one job only: reject values the DS18B20 physically cannot produce.
@@ -39,7 +45,8 @@ def connect_db(quiet=False):
     """Open a fresh connection to Postgres. Returns None on failure."""
     try:
         return psycopg2.connect(
-            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
+            host=DB_HOST, port=DB_PORT, database=DB_NAME,
+            user=DB_USER, password=DB_PASSWORD
         )
     except Exception as e:
         if not quiet:

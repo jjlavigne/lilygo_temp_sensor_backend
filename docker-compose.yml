@@ -1,27 +1,58 @@
+# Declared explicitly so the volume prefix can never drift. Compose derives this
+# from the directory name by default -- rename or move the folder and it would
+# create NEW empty volumes, making all existing data look like it vanished.
+name: fleet-telemetry-pipeline
+
 services:
+  # --- Message broker: routes device telemetry, never inspects it -------------
   mqtt-broker:
     image: eclipse-mosquitto:latest
     container_name: mqtt-broker
     ports:
-      - "1883:1883" 
+      - "1883:1883"
     volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf 
-      - ./pwfile:/mosquitto/config/pwfile
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/pwfile:/mosquitto/config/pwfile:ro
     restart: unless-stopped
 
+  # --- Database: the permanent record ----------------------------------------
   telemetry-db:
     image: postgres:15
     container_name: telemetry-db
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
-      POSTGRES_DB: fleet_data
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_DB: ${POSTGRES_DB:-fleet_data}
     volumes:
-      - pgdata:/var/lib/postgresql/data 
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      # Lets ingestion wait for a database that is actually accepting queries,
+      # rather than one whose container has merely started.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-fleet_data}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Ingestion: broker -> database ------------------------------------------
+  # Previously run by hand on the VM, which meant a reboot silently killed the
+  # pipeline while the containers stayed up and everything looked healthy.
+  ingestion:
+    build: ./backend
+    container_name: ingestion
+    environment:
+      MQTT_BROKER: mqtt-broker        # Docker service names, not localhost:
+      DB_HOST: telemetry-db           # inside a container localhost is itself
+    depends_on:
+      telemetry-db:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_started
     restart: unless-stopped
 
+  # --- Dashboards and alerting ------------------------------------------------
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -31,6 +62,26 @@ services:
       - grafana-storage:/var/lib/grafana
     depends_on:
       - telemetry-db
+    restart: unless-stopped
+
+  # --- Simulated fleet: opt-in only -------------------------------------------
+  # Behind a profile so a plain "docker compose up" never starts it. Synthetic
+  # data should never appear in a system being presented as real without the
+  # operator explicitly asking for it.
+  #   start:  docker compose --profile sim up -d
+  #   stop:   docker compose stop fleet-simulator
+  fleet-simulator:
+    build: ./mock-device
+    container_name: fleet-simulator
+    profiles: ["sim"]
+    environment:
+      MQTT_BROKER: mqtt-broker
+      DB_HOST: telemetry-db
+      PUBLISH_INTERVAL_S: ${PUBLISH_INTERVAL_S:-300}
+      SCENARIO: ${SCENARIO:-demo}
+    command: ["python", "fleet_simulator.py", "--scenario", "${SCENARIO:-demo}"]
+    depends_on:
+      - ingestion
     restart: unless-stopped
 
 volumes:

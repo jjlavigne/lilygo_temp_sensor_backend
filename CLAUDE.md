@@ -55,29 +55,44 @@ Grafana datasource and dashboards (there is no provisioning-as-code to rebuild t
 
 Three containers, all on the default compose network, all `restart: unless-stopped`:
 
-| Service | Container | Image | Host port | Volumes |
-|---|---|---|---|---|
-| `mqtt-broker` | `mqtt-broker` | `eclipse-mosquitto:latest` | 1883 | bind-mounts `./mosquitto.conf`, `./pwfile` |
-| `telemetry-db` | `telemetry-db` | `postgres:15` | 5432 | named volume `pgdata` |
-| `grafana` | `grafana` | `grafana/grafana:latest` | 3000 | named volume `grafana-storage` |
+Five services, all `restart: unless-stopped`:
 
-`grafana` declares `depends_on: telemetry-db`. Postgres is configured via environment
-in the compose file: user `admin`, password `password123`, database `fleet_data`.
+| Service | Image / build | Host port | Notes |
+|---|---|---|---|
+| `mqtt-broker` | `eclipse-mosquitto:latest` | 1883 | bind-mounts `./mosquitto/` read-only |
+| `telemetry-db` | `postgres:15` | 5432 | volume `pgdata`; has a `pg_isready` healthcheck |
+| `ingestion` | built from `./backend` | — | waits for the DB healthcheck before starting |
+| `grafana` | `grafana/grafana:latest` | 3000 | volume `grafana-storage` |
+| `fleet-simulator` | built from `./mock-device` | — | **profile `sim`** — never starts by default |
+
+`ingestion` and `fleet-simulator` reach the others by **Docker service name**
+(`mqtt-broker`, `telemetry-db`), not `localhost` — inside a container `localhost` is
+the container itself. Both scripts read config from environment variables with
+localhost defaults, so the same file also runs directly on the VM for debugging.
+
+The simulator sits behind a Compose profile deliberately: synthetic data should never
+appear in a system being presented as real unless someone explicitly asked for it.
 
 Note: the README claims a "custom virtual network" and that `pgdata` is "mapped to the
 host machine" — neither is accurate. Compose uses the default project network, and
 `pgdata` is a named volume managed by Docker, not a host bind mount. Trust the compose
 file over the README.
 
-## Application code (runs on the host, not in Docker)
+## Application code
 
-- **`backend/ingestion.py`** — subscribes to `fleet/telemetry` on `localhost:1883`,
-  validates payloads, inserts into Postgres. Creates the `telemetry` table on startup
-  if missing. Run with `python ingestion.py` from `backend/`.
-- **`mock-device/mock_publisher.py`** — publishes a synthetic reading every 5 seconds
-  as `MOCK-TRUCK-001`. Seattle-area coordinates, 2–6 °C.
-- **`mock-device/test_alert.py`** — one-shot publisher of a single out-of-range
-  payload (8.5 °C, `TRUCK-TEST-999`) for testing alerting.
+- **`backend/ingestion.py`** — subscribes to `fleet/telemetry`, validates payloads,
+  inserts into Postgres. Creates `telemetry` and `rejected_readings` on startup if
+  missing. Runs as the `ingestion` container.
+- **`mock-device/fleet_simulator.py`** — the 20-sensor fleet. Two modes: `live`
+  (publishes over MQTT, exercising the real pipeline) and `--backfill-hours N`
+  (writes history straight to Postgres, because ingestion stamps `recorded_at` with
+  the server clock and history cannot be replayed through MQTT). `--setup-db`
+  registers devices. Runs as the `fleet-simulator` container under profile `sim`.
+- **`mock-device/mock_publisher.py`** — *legacy*, superseded by the simulator. Single
+  device, and it never sends MQTT credentials so the broker rejects it.
+- **`mock-device/test_alert.py`** — *legacy*, one-shot 8.5 °C payload as
+  `TRUCK-TEST-999`, a device not registered in `devices`, so it will not appear in
+  any company-scoped panel.
 - **`firmware/fleet-telemetry-firmware/`** — PlatformIO / ESP32 (`esp32dev`, Arduino
   framework, upload port `COM5`). **The committed copy is stale** — see the deployed
   firmware section below for actual behavior.
@@ -213,13 +228,66 @@ from the `172.29.96.1` WSL address in the committed `config.h`. Also sets
 dropped messages and a gap in the data, not as a bogus row. Keep that in mind when
 changing the bounds.
 
-## Boot sequence
+## Running the stack
 
-1. `docker compose start` (or start the stack in Docker Desktop)
-2. `cd backend && python ingestion.py`
-3. In another terminal: `cd mock-device && python mock_publisher.py`
+Everything is containerized. **There are no Python processes to start by hand.**
 
-Grafana at http://localhost:3000, pointed at `telemetry-db:5432` / `fleet_data`.
+```bash
+docker compose up -d                    # broker, database, ingestion, Grafana
+docker compose --profile sim up -d      # ...plus the 20 simulated sensors
+```
+
+Everything is `restart: unless-stopped`, so it comes back after a VM reboot on its own.
+
+```bash
+docker compose ps                       # what is running
+docker compose logs -f ingestion        # follow the pipeline
+docker compose logs -f fleet-simulator  # expect "published 20/20"
+docker compose stop fleet-simulator     # silence synthetic data, keep the rest
+docker compose restart ingestion        # after editing ingestion.py, plus --build
+```
+
+Rebuild after changing Python: `docker compose up -d --build`.
+
+The physical board publishes on its own once powered and in range of the broker —
+nothing to start for it.
+
+Dashboard: http://localhost:3000/d/fleet-command-center/fleet-command-center
+
+**Shutting down:** `docker compose stop` is fine. **Never `docker compose down -v`.**
+Expect one offline alert per simulated device roughly 15 minutes after stopping the
+simulator — that is the staleness rule working correctly, not a fault.
+
+## Timing: two speeds on purpose
+
+| | Interval | Staleness alert after |
+|---|---|---|
+| Simulated fleet | 300s (5 min) | ~15 min |
+| `TRUCK-LILYGO-001` | 5s | 60s (the floor) |
+
+The fleet is slow because that is what real reefer telemetry does — cellular data and
+battery both cost money — and because ~5,800 rows/day is manageable where 15-second
+reporting was ~115,000. The board is fast because it is the only thing an audience
+watches change, and it has to react while the probe is still in the water.
+
+Both are single constants at the top of `fleet_simulator.py`, overridable via
+`PUBLISH_INTERVAL_S` / `REAL_DEVICE_INTERVAL_S`.
+
+**Consequence for queries:** no fixed time window can serve both a 5-second and a
+300-second reporter. Every alert and panel uses `DISTINCT ON (device_id) ... ORDER BY
+recorded_at DESC` — each device's most recent reading — instead of a fixed window. A
+query like `WHERE recorded_at > now() - interval '90 seconds'` looks correct and
+silently excludes the entire simulated fleet.
+
+## Simulated failures recover on their own
+
+Faults are not permanent. Each scripted failure has a duration, after which the device
+returns to normal — a door gets closed, a truck leaves the dead zone. Without this, a
+simulator left running re-notifies Slack every 5 minutes forever. It also gives the
+demo a better story: the alert fires *and* clears.
+
+Schedules are expressed as multiples of `PUBLISH_INTERVAL_S`, so the same script plays
+out over ~45 minutes at 300s or under three minutes at a 15s test interval.
 
 ## Auth: `mock_publisher.py` is the one client missing credentials
 
