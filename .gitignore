@@ -18,3 +18,7 @@ __pycache__/
 # OS noise
 Thumbs.db
 desktop.ini
+
+# Database dumps and data archives (large, regenerable or archival)
+*.sql.gz
+*.csv.gz
