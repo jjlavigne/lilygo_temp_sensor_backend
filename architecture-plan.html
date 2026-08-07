@@ -1,0 +1,656 @@
+<title>Fleet Command Center — Architecture Plan</title>
+
+<style>
+  :root {
+    --ground:   #F5F8F9;
+    --surface:  #FFFFFF;
+    --sunk:     #EBF0F2;
+    --ink:      #141D22;
+    --muted:    #5C6D75;
+    --faint:    #8A9AA1;
+    --line:     #D6DFE3;
+    --cold:     #16707F;
+    --warm:     #B4541F;
+    --silent:   #6B5B7D;
+
+    --serif: "Charter", "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+    --sans:  "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono:  "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:  #0D1418;
+      --surface: #141E23;
+      --sunk:    #101a1f;
+      --ink:     #E2EAED;
+      --muted:   #9AAAB2;
+      --faint:   #6E8189;
+      --line:    #253238;
+      --cold:    #57B8C9;
+      --warm:    #E58B52;
+      --silent:  #A895BE;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:  #0D1418;
+    --surface: #141E23;
+    --sunk:    #101a1f;
+    --ink:     #E2EAED;
+    --muted:   #9AAAB2;
+    --faint:   #6E8189;
+    --line:    #253238;
+    --cold:    #57B8C9;
+    --warm:    #E58B52;
+    --silent:  #A895BE;
+  }
+  :root[data-theme="light"] {
+    --ground:  #F5F8F9;
+    --surface: #FFFFFF;
+    --sunk:    #EBF0F2;
+    --ink:     #141D22;
+    --muted:   #5C6D75;
+    --faint:   #8A9AA1;
+    --line:    #D6DFE3;
+    --cold:    #16707F;
+    --warm:    #B4541F;
+    --silent:  #6B5B7D;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ---- masthead ---- */
+  header.mast {
+    padding: 72px 0 34px;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cold);
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(30px, 5.2vw, 44px);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+    max-width: 60ch;
+  }
+
+  /* ---- sections ---- */
+  section {
+    padding: 44px 0 8px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  section:last-of-type { border-bottom: none; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(23px, 3.4vw, 29px);
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-weight: 650;
+    font-size: 15px;
+    letter-spacing: 0.005em;
+    margin: 10px 0 0;
+  }
+  p { margin: 0; max-width: 68ch; }
+  strong { font-weight: 650; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.875em;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0.1em 0.36em;
+  }
+
+  ul { margin: 0; padding-left: 20px; max-width: 68ch; display: flex; flex-direction: column; gap: 7px; }
+  li::marker { color: var(--faint); }
+
+  /* ---- verdict callout ---- */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--cold);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .verdict .lead {
+    font-family: var(--serif);
+    font-size: 20px;
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .warnbox {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warm);
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  /* ---- figure ---- */
+  figure {
+    margin: 8px 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .figframe {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 18px 14px;
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; min-width: 560px; height: auto; }
+  figcaption {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 68ch;
+  }
+
+  /* ---- change ledger ---- */
+  .ledger { display: flex; flex-direction: column; gap: 2px; }
+  .lrow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+    padding: 11px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .lrow + .lrow { border-top: none; }
+  .lname { font-family: var(--mono); font-size: 13px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .t-new  { color: var(--cold); }
+  .t-edit { color: var(--warm); }
+  .t-keep { color: var(--faint); }
+
+  /* ---- three-up tradeoffs ---- */
+  .tri {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 18px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .card h4 {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    margin: 0;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--line);
+  }
+  .c-gain h4 { color: var(--cold); }
+  .c-cost h4 { color: var(--warm); }
+  .c-same h4 { color: var(--faint); }
+  .card ul { padding-left: 17px; gap: 8px; font-size: 14.5px; line-height: 1.5; }
+
+  /* ---- phases ---- */
+  .phases { display: flex; flex-direction: column; gap: 0; }
+  .phase {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 18px;
+    padding: 17px 0;
+    border-top: 1px solid var(--line);
+  }
+  .phase:last-child { border-bottom: 1px solid var(--line); }
+  .pnum {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--cold);
+    padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pbody { display: flex; flex-direction: column; gap: 5px; }
+  .ptitle { font-weight: 650; font-size: 15px; }
+  .pmeta { font-size: 13.5px; color: var(--muted); }
+
+  /* ---- demo beats ---- */
+  .beats { display: flex; flex-direction: column; gap: 0; }
+  .beat {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 16px;
+    padding: 14px 0;
+    border-top: 1px dashed var(--line);
+    align-items: baseline;
+  }
+  .beat:last-child { border-bottom: 1px dashed var(--line); }
+  .btemp {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .b-cold { color: var(--cold); }
+  .b-warm { color: var(--warm); }
+  .b-none { color: var(--silent); }
+
+  /* ---- asks ---- */
+  .asks { display: flex; flex-direction: column; gap: 12px; }
+  .ask {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 15px 17px;
+  }
+  .askmark {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cold);
+    padding-top: 3px;
+  }
+  .ask p { font-size: 14.5px; }
+
+  footer {
+    padding-top: 40px;
+    font-size: 13px;
+    color: var(--faint);
+    font-family: var(--mono);
+  }
+
+  a { color: var(--cold); text-underline-offset: 2px; }
+  a:focus-visible, .lrow:focus-visible { outline: 2px solid var(--cold); outline-offset: 2px; }
+
+  @media (max-width: 560px) {
+    body { padding: 0 18px 72px; }
+    header.mast { padding-top: 48px; }
+    .phase { grid-template-columns: 32px 1fr; gap: 12px; }
+    .beat { grid-template-columns: 1fr; gap: 4px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="kicker">Cold-chain telemetry · design review</div>
+    <h1>Fleet Command Center: what changes, what breaks, and what stays</h1>
+    <p class="standfirst">A plan for turning the working prototype into a four-company monitoring system — without replacing the thing that already works.</p>
+  </header>
+
+  <section>
+    <p class="eyebrow">The question you asked</p>
+    <h2>You don't need a parallel system. You need a rollback path.</h2>
+
+    <div class="verdict">
+      <p class="lead">Almost nothing here replaces what you have. Two files change; everything else is new files sitting alongside the old ones.</p>
+      <p>Building a second Grafana and a second database to test against would double the work and still wouldn't prove much — the risk isn't in the new parts, it's in the two existing files that get edited. Git already solves that, and better: the old version of each file stays one command away, permanently.</p>
+    </div>
+
+    <p>Nothing is ever <em>guaranteed</em> safe. But "safe" here means <strong>reversible in under a minute</strong>, and that's achievable. Here is every file the plan touches:</p>
+
+    <div class="ledger">
+      <div class="lrow"><span class="lname">devices (new table)</span><span class="tag t-new">New · additive</span></div>
+      <div class="lrow"><span class="lname">mock-device/fleet_simulator.py</span><span class="tag t-new">New file</span></div>
+      <div class="lrow"><span class="lname">grafana/ (config folder)</span><span class="tag t-new">New folder</span></div>
+      <div class="lrow"><span class="lname">.env + .gitignore</span><span class="tag t-new">New file</span></div>
+      <div class="lrow"><span class="lname">backend/ingestion.py</span><span class="tag t-edit">Edited</span></div>
+      <div class="lrow"><span class="lname">docker-compose.yml</span><span class="tag t-edit">Edited · 3 lines</span></div>
+      <div class="lrow"><span class="lname">telemetry table + its rows</span><span class="tag t-keep">Untouched</span></div>
+      <div class="lrow"><span class="lname">pgdata + grafana-storage</span><span class="tag t-keep">Untouched</span></div>
+      <div class="lrow"><span class="lname">mock_publisher.py, test_alert.py</span><span class="tag t-keep">Untouched</span></div>
+      <div class="lrow"><span class="lname">Existing dashboards you built</span><span class="tag t-keep">Untouched</span></div>
+    </div>
+
+    <p>The safety procedure is three habits, not a second system: <strong>work on a branch</strong>, <strong>keep the old <code>ingestion.py</code> runnable</strong> so switching back is one command, and <strong>rehearse the full demo</strong> end-to-end at least a day before you present it.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">The architecture, intuitively</p>
+    <h2>Four jobs, and one of them is currently in the wrong place</h2>
+
+    <p>Think of the system as four jobs handed off in sequence. Every piece of it does exactly one:</p>
+
+    <ul>
+      <li><strong>The senders</strong> — your LilyGO board and the simulated sensors. They measure and shout. They don't judge.</li>
+      <li><strong>The post office</strong> — Mosquitto. It routes messages and never looks inside them.</li>
+      <li><strong>The recorder</strong> — <code>ingestion.py</code> and Postgres. Writes things down and keeps them.</li>
+      <li><strong>The watcher</strong> — Grafana. Reads what was written, decides what's alarming, raises the alarm.</li>
+    </ul>
+
+    <p>That division is already almost right in your build. The single problem is that <strong>the recorder is currently also acting as the judge</strong> — and it throws away what it disapproves of before the watcher ever sees it.</p>
+
+    <figure>
+      <div class="figframe">
+        <svg viewBox="0 0 840 322" role="img" aria-label="Two pipelines compared. Today, ingestion.py judges whether a reading is both physically possible and acceptable, discarding an 8 degree reading before it reaches Postgres, so Grafana never fires an alert. In the proposed design, ingestion.py only checks physical possibility, the 8 degree reading is stored, and Grafana judges it and posts to Slack.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--warm)"/>
+            </marker>
+            <marker id="ahf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" style="fill:var(--faint)"/>
+            </marker>
+          </defs>
+
+          <!-- ============ ROW 1 : TODAY ============ -->
+          <text x="16" y="22" font-size="10.5" letter-spacing="1.6" style="font-family:var(--mono);fill:var(--faint)">TODAY</text>
+
+          <rect x="16"  y="44" width="92"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="154" y="44" width="78"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="278" y="44" width="112" height="54" fill="none" style="stroke:var(--warm)" stroke-width="1.6"/>
+          <rect x="436" y="44" width="96"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="578" y="44" width="92"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="716" y="44" width="100" height="54" fill="none" style="stroke:var(--faint)" stroke-width="1" stroke-dasharray="3 3"/>
+
+          <text x="62"  y="76" text-anchor="middle" font-size="11.5" fill="currentColor">Device</text>
+          <text x="193" y="76" text-anchor="middle" font-size="11.5" fill="currentColor">Broker</text>
+          <text x="334" y="76" text-anchor="middle" font-size="11.5" style="fill:var(--warm)">ingestion.py</text>
+          <text x="484" y="76" text-anchor="middle" font-size="11.5" fill="currentColor">Postgres</text>
+          <text x="624" y="76" text-anchor="middle" font-size="11.5" fill="currentColor">Grafana</text>
+          <text x="766" y="76" text-anchor="middle" font-size="11.5" style="fill:var(--faint)">Slack</text>
+
+          <line x1="111" y1="71" x2="150" y2="71" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="235" y1="71" x2="274" y2="71" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="393" y1="71" x2="432" y2="71" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="535" y1="71" x2="574" y2="71" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="673" y1="71" x2="712" y2="71" style="stroke:var(--faint)" stroke-dasharray="3 3" marker-end="url(#ahf)"/>
+
+          <text x="130" y="63" text-anchor="middle" font-size="9" style="fill:var(--faint)">MQTT</text>
+          <text x="254" y="63" text-anchor="middle" font-size="9" style="fill:var(--faint)">sub</text>
+          <text x="412" y="63" text-anchor="middle" font-size="9" style="fill:var(--faint)">insert</text>
+          <text x="554" y="63" text-anchor="middle" font-size="9" style="fill:var(--faint)">query</text>
+          <text x="692" y="63" text-anchor="middle" font-size="9" style="fill:var(--faint)">never</text>
+
+          <!-- discard path -->
+          <line x1="334" y1="99" x2="334" y2="120" style="stroke:var(--warm)" stroke-width="1.4" marker-end="url(#ahw)"/>
+          <line x1="326" y1="126" x2="342" y2="142" style="stroke:var(--warm)" stroke-width="1.6"/>
+          <line x1="342" y1="126" x2="326" y2="142" style="stroke:var(--warm)" stroke-width="1.6"/>
+          <text x="356" y="139" font-size="10.5" style="fill:var(--warm)">the 8 °C reading is deleted here</text>
+
+          <text x="334" y="163" text-anchor="middle" font-size="9.5" style="fill:var(--warm)">judges: possible? AND too warm?</text>
+
+          <line x1="16" y1="184" x2="824" y2="184" style="stroke:var(--line)" stroke-width="1"/>
+
+          <!-- ============ ROW 2 : PROPOSED ============ -->
+          <text x="16" y="212" font-size="10.5" letter-spacing="1.6" style="font-family:var(--mono);fill:var(--cold)">PROPOSED</text>
+
+          <rect x="16"  y="234" width="92"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="154" y="234" width="78"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="278" y="234" width="112" height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="436" y="234" width="96"  height="54" fill="none" stroke="currentColor" stroke-width="1"/>
+          <rect x="578" y="234" width="92"  height="54" fill="none" style="stroke:var(--cold)" stroke-width="1.6"/>
+          <rect x="716" y="234" width="100" height="54" fill="none" style="stroke:var(--warm)" stroke-width="1.4"/>
+
+          <text x="62"  y="266" text-anchor="middle" font-size="11.5" fill="currentColor">Device</text>
+          <text x="193" y="266" text-anchor="middle" font-size="11.5" fill="currentColor">Broker</text>
+          <text x="334" y="266" text-anchor="middle" font-size="11.5" fill="currentColor">ingestion.py</text>
+          <text x="484" y="266" text-anchor="middle" font-size="11.5" fill="currentColor">Postgres</text>
+          <text x="624" y="266" text-anchor="middle" font-size="11.5" style="fill:var(--cold)">Grafana</text>
+          <text x="766" y="266" text-anchor="middle" font-size="11.5" style="fill:var(--warm)">Slack</text>
+
+          <line x1="111" y1="261" x2="150" y2="261" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="235" y1="261" x2="274" y2="261" stroke="currentColor" marker-end="url(#ah)"/>
+          <line x1="393" y1="261" x2="432" y2="261" style="stroke:var(--warm)" stroke-width="1.5" marker-end="url(#ahw)"/>
+          <line x1="535" y1="261" x2="574" y2="261" style="stroke:var(--warm)" stroke-width="1.5" marker-end="url(#ahw)"/>
+          <line x1="673" y1="261" x2="712" y2="261" style="stroke:var(--warm)" stroke-width="1.5" marker-end="url(#ahw)"/>
+
+          <text x="130" y="253" text-anchor="middle" font-size="9" style="fill:var(--faint)">MQTT</text>
+          <text x="254" y="253" text-anchor="middle" font-size="9" style="fill:var(--faint)">sub</text>
+          <text x="412" y="253" text-anchor="middle" font-size="9" style="fill:var(--warm)">stores</text>
+          <text x="554" y="253" text-anchor="middle" font-size="9" style="fill:var(--warm)">polls 10s</text>
+          <text x="692" y="253" text-anchor="middle" font-size="9" style="fill:var(--warm)">posts</text>
+
+          <text x="334" y="306" text-anchor="middle" font-size="9.5" fill="currentColor">judges: possible?</text>
+          <text x="624" y="306" text-anchor="middle" font-size="9.5" style="fill:var(--cold)">judges: too warm?</text>
+        </svg>
+      </div>
+      <figcaption>The same 8&nbsp;°C reading in both designs. Today it is deleted at <code>ingestion.py</code> for failing a range check, so Postgres has no record of it and Grafana has nothing to alert on. In the proposed design <code>ingestion.py</code> only rejects the physically impossible, the reading is stored, and the judgment moves to Grafana — which is the only component that can actually notify anyone.</figcaption>
+    </figure>
+
+    <div class="warnbox">
+      <h3>Why this is the whole ballgame</h3>
+      <p>You cannot raise an alarm about a reading you deleted. Every other improvement in this plan is worth having; this one is the difference between a system that alerts and a system that only appears to.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Multi-tenancy</p>
+    <h2>Who owns a sensor becomes data, not code</h2>
+
+    <p>Right now nothing anywhere records that a sensor belongs to Plymouth. The fix is a small <code>devices</code> table mapping each device to its company, its site, and the temperature band that company actually needs:</p>
+
+    <div class="ledger">
+      <div class="lrow"><span class="lname">TRUCK-LILYGO-001 → Plymouth · Demo Bench</span><span class="tag t-cold" style="color:var(--cold)">2 – 6 °C</span></div>
+      <div class="lrow"><span class="lname">PLY-SIM-01…05 → Plymouth · Seattle, Tacoma</span><span class="tag t-cold" style="color:var(--cold)">2 – 6 °C</span></div>
+      <div class="lrow"><span class="lname">ALO-SIM-01…05 → Aloha · Honolulu, Kahului</span><span class="tag t-cold" style="color:var(--cold)">1 – 5 °C</span></div>
+      <div class="lrow"><span class="lname">NIK-SIM-01…05 → Nikky USA · Portland, Boise</span><span class="tag t-cold" style="color:var(--cold)">−23 – −18 °C</span></div>
+      <div class="lrow"><span class="lname">SNJ-SIM-01…05 → S&amp;J · Spokane, Yakima</span><span class="tag t-cold" style="color:var(--cold)">0 – 4 °C</span></div>
+    </div>
+
+    <p>Two things follow from this, and they're the reasons it's worth a whole extra table.</p>
+
+    <h3>Each company gets its own definition of "too warm"</h3>
+    <p>Nikky USA hauls frozen goods at −23 to −18&nbsp;°C. Plymouth hauls produce at 2 to 6&nbsp;°C. A single global threshold cannot serve both — it would either scream at Nikky constantly or never notice Plymouth spoiling. One alert rule reads each device's own limits from this table, so all four companies are judged correctly by the same rule.</p>
+
+    <h3>Adding a fifth company is a config edit, not a code change</h3>
+    <p>Add the rows. The dashboard's company filter is built from <code>SELECT DISTINCT company</code>, so the new name appears in the dropdown by itself. The alert rules already join this table, so they cover the new sensors immediately. The only deliberate step is adding one Slack routing entry if that company wants its own channel.</p>
+
+    <h3>And the device never gets to say who it belongs to</h3>
+    <p>It would be simpler to have the firmware include <code>"company": "Plymouth"</code> in each message. Don't. A device that declares its own tenant can declare somebody else's, and once four customers share one database that's the difference between a bug and a breach. The device sends its ID; the server decides what that ID means.</p>
+  </section>
+
+  <section>
+    <p class="eyebrow">Honest accounting</p>
+    <h2>What you gain, what it costs</h2>
+
+    <div class="tri">
+      <div class="card c-gain">
+        <h4>What you gain</h4>
+        <ul>
+          <li>Alerts that can actually fire — the core fix</li>
+          <li>Per-company temperature limits from one rule</li>
+          <li>Dead-sensor detection, which no threshold rule can ever catch</li>
+          <li>Survives a Postgres restart instead of silently dying</li>
+          <li>A new company is rows, not code</li>
+          <li>Grafana config in git, so the volume stops being irreplaceable</li>
+          <li>Real board and simulated fleet share one pipeline — the demo shows the true product</li>
+        </ul>
+      </div>
+      <div class="card c-cost">
+        <h4>What it costs</h4>
+        <ul>
+          <li>Queries now need a join; slightly more to hold in your head</li>
+          <li>The device registry must be maintained — an unregistered device shows up with no company</li>
+          <li>Storage grows faster once readings stop being discarded</li>
+          <li>Staleness alerts need tuning or they cry wolf on every tunnel and dead zone</li>
+          <li>The Slack webhook is a secret to manage, and needs outbound internet from the VM</li>
+          <li>Provisioned config is read-only in the Grafana UI unless deliberately unlocked</li>
+          <li>More moving parts, and you are the only person who knows how they fit</li>
+        </ul>
+      </div>
+      <div class="card c-same">
+        <h4>What doesn't change</h4>
+        <ul>
+          <li>The <code>telemetry</code> table and every row already in it</li>
+          <li>Both Docker volumes</li>
+          <li>Mosquitto and its config</li>
+          <li>The MQTT payload shape your firmware already sends</li>
+          <li>Dashboards you've already built by hand</li>
+          <li>The overall shape you designed — this is a correction, not a redesign</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The demo</p>
+    <h2>Twenty simulated sensors, one real probe, and a glass of ice water</h2>
+
+    <p>Four companies publish continuously in the background so the dashboard looks like a live operation rather than a test rig. Your LilyGO is the sixth Plymouth device and the only one you touch — which is what makes the moment land, because the audience watches a physical object change a number on a screen.</p>
+
+    <div class="beats">
+      <div class="beat"><span class="btemp b-cold">≈ 4 °C</span><span>Probe starts in chilled water. Plymouth is green. All four companies nominal.</span></div>
+      <div class="beat"><span class="btemp b-warm">≈ 100 °C</span><span>Into hot water. Temperature climbs through the 6&nbsp;°C ceiling within seconds, the panel flips to alarm, and Slack fires.</span></div>
+      <div class="beat"><span class="btemp b-cold">≈ 0 °C</span><span>Into ice water. Now it breaches the <em>low</em> limit — freeze damage is a real spoilage mode, and it proves the rule works in both directions.</span></div>
+      <div class="beat"><span class="btemp b-warm">rising</span><span>Meanwhile an Aloha unit in Honolulu drifts up on its own. A second company alarms without you touching anything.</span></div>
+      <div class="beat"><span class="btemp b-none">silence</span><span>An S&amp;J unit stops reporting entirely. The staleness alert catches what a temperature rule structurally cannot.</span></div>
+    </div>
+
+    <div class="warnbox">
+      <h3>Two things to rehearse, not discover on stage</h3>
+      <p><strong>Room air is already an alarm.</strong> At roughly 20&nbsp;°C, your probe sitting on the table is far above Plymouth's 6&nbsp;°C ceiling. If you want to open on a calm green dashboard, the probe has to start in chilled water — not in your hand.</p>
+      <p><strong>Boiling water needs a waterproof probe and a wider ceiling.</strong> The bare sensor and its cable aren't rated for it, and <code>ingestion.py</code> currently discards anything above 101&nbsp;°C — so boiling water would be thrown away as implausible. Hot tap water at 50–60&nbsp;°C is dramatic enough and far safer for the hardware.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Sequence</p>
+    <h2>The plan, in the order it has to happen</h2>
+
+    <div class="phases">
+      <div class="phase">
+        <div class="pnum">01</div>
+        <div class="pbody">
+          <div class="ptitle">Back up the firmware — before anything else</div>
+          <div class="pmeta">The code running on your board exists in exactly one place and is not in git. Every hour it stays that way is a working device configuration you'd have to re-derive from scratch. This blocks everything else.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">02</div>
+        <div class="pbody">
+          <div class="ptitle">Create the devices table and register all 21 sensors</div>
+          <div class="pmeta">Purely additive. Nothing existing is touched, and it's what every later query depends on.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">03</div>
+        <div class="pbody">
+          <div class="ptitle">Repair ingestion.py</div>
+          <div class="pmeta">Reconnect to Postgres on connection loss; reject only the physically impossible; record what was rejected instead of discarding it silently. Old version stays one command away.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">04</div>
+        <div class="pbody">
+          <div class="ptitle">Finish and run the fleet simulator</div>
+          <div class="pmeta">Already about 90% written. Backfill a day of history so the dashboard opens with a populated view rather than a blank one.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">05</div>
+        <div class="pbody">
+          <div class="ptitle">Build the Grafana pane and the three alert rules</div>
+          <div class="pmeta">Temperature excursion, staleness, low battery — all grouped by company and site.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">06</div>
+        <div class="pbody">
+          <div class="ptitle">Wire Slack and prove one alert end to end</div>
+          <div class="pmeta">Do this early. A blocked outbound connection from the VM is the failure most likely to surface on demo day.</div>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="pnum">07</div>
+        <div class="pbody">
+          <div class="ptitle">Firmware demo mode, then full dress rehearsal</div>
+          <div class="pmeta">Short publish interval instead of the hour-long sleep, then run the entire demo start to finish while there's still time to fix what breaks.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Logistics</p>
+    <h2>Access, and what I'd need from you</h2>
+
+    <h3>On the firmware and your host machine</h3>
+    <p>Yes — opening a session on the host would genuinely help. The board's source lives there, the USB port is there, and right now every firmware change is you copying code between machines by hand. But there's a firm precondition: <strong>the firmware gets committed to git first.</strong> Editing the only copy of something is how the only copy gets lost.</p>
+    <p>On flashing: I'd want to confirm with you before each flash rather than doing it silently. Writing to a physical device is the one action here that isn't a <code>git checkout</code> away from being undone, and a demo board that won't boot the night before is a bad way to learn that.</p>
+
+    <div class="asks">
+      <div class="ask"><span class="askmark">01</span><p><strong>Slack webhook URL</strong> — you create it at api.slack.com in your own workspace; it takes about two minutes and needs workspace-admin rights. I never need Slack access myself: Grafana does the sending, not me. I can write the config with a placeholder if it'll take time to get approved.</p></div>
+      <div class="ask"><span class="askmark">02</span><p><strong>One Slack channel or four?</strong> One is simpler and fine. Four makes per-company routing visible in the demo, which is more convincing to a customer, and costs about ten extra minutes.</p></div>
+      <div class="ask"><span class="askmark">03</span><p><strong>Confirmation I can edit <code>ingestion.py</code> and <code>docker-compose.yml</code></strong> — the compose change adds a config mount and restarts only the Grafana container. Both volumes are untouched.</p></div>
+      <div class="ask"><span class="askmark">04</span><p><strong>Whether the VM can reach the internet</strong> — if a proxy or firewall blocks outbound HTTPS, Slack won't work and we should find that out in week one, not on demo day.</p></div>
+      <div class="ask"><span class="askmark">05</span><p><strong>Your call on Grafana config</strong> — I'd suggest provisioning the plumbing (datasource, Slack routing) as code, and building dashboards and alert rules in the UI where you can freely experiment, then exporting them to files once you're happy.</p></div>
+    </div>
+  </section>
+
+  <footer>Prepared for the fleet-telemetry-pipeline prototype · architecture review</footer>
+
+</div>

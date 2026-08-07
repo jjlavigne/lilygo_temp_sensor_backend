@@ -1,0 +1,645 @@
+{
+  "uid": "fleet-command-center",
+  "title": "Fleet Command Center",
+  "tags": [
+    "fleet",
+    "cold-chain"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "company",
+        "label": "Company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "cfmk49pm86epsf"
+        },
+        "query": "SELECT DISTINCT company FROM devices ORDER BY company;",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ],
+          "selected": true
+        },
+        "options": [],
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Devices Reporting",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT count(DISTINCT t.device_id) AS \"Reporting\"\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '2 minutes' AND d.company IN (${company:sqlstring})",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Temperature Excursions",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT count(*) AS \"In excursion\" FROM (\n  SELECT t.device_id\n  FROM telemetry t JOIN devices d USING (device_id)\n  WHERE t.recorded_at > now() - interval '90 seconds' AND d.company IN (${company:sqlstring})\n  GROUP BY t.device_id, d.temp_min_c, d.temp_max_c\n  HAVING GREATEST(MAX(t.temperature_c) - d.temp_max_c,\n                  d.temp_min_c - MIN(t.temperature_c)) > 0\n) x",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Sensors Offline",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT count(*) AS \"Offline\" FROM (\n  SELECT d.device_id\n  FROM devices d\n  LEFT JOIN telemetry t ON t.device_id = d.device_id\n       AND t.recorded_at > now() - interval '6 hours'\n  WHERE d.company IN (${company:sqlstring})\n  GROUP BY d.device_id, d.expected_interval_s\n  HAVING EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n         > GREATEST(d.expected_interval_s * 3, 60)\n) x",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Low Battery",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT count(*) AS \"Low battery\" FROM (\n  SELECT t.device_id\n  FROM telemetry t JOIN devices d USING (device_id)\n  WHERE t.recorded_at > now() - interval '5 minutes'\n    AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\n  GROUP BY t.device_id\n  HAVING MIN(t.battery_pct) < 20\n) x",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Fleet Status",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT DISTINCT ON (d.device_id)\n  d.company,\n  d.site,\n  d.device_id,\n  t.temperature_c,\n  d.temp_min_c   AS min_ok,\n  d.temp_max_c   AS max_ok,\n  t.battery_pct,\n  t.recorded_at  AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL\n      OR t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN telemetry t ON t.device_id = d.device_id\n     AND t.recorded_at > now() - interval '6 hours'\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.device_id, t.recorded_at DESC",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "OK": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "HIGH": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "LOW": {
+                        "color": "blue",
+                        "index": 2
+                      },
+                      "OFFLINE": {
+                        "color": "orange",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temperature_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "battery_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "status",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "title": "Temperature History",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 16,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "\nSELECT t.recorded_at AS \"time\", t.device_id AS metric, t.temperature_c\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nORDER BY t.recorded_at",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 4,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Fleet Map",
+      "type": "geomap",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT DISTINCT ON (t.device_id)\n  t.device_id, t.latitude, t.longitude, t.temperature_c\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '10 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "view": {
+          "id": "zero",
+          "lat": 40,
+          "lon": -120,
+          "zoom": 3
+        },
+        "basemap": {
+          "type": "default",
+          "name": "Basemap"
+        },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Sensors",
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
+            "config": {
+              "size": {
+                "fixed": 8
+              },
+              "showLegend": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "title": "Rejected Readings (sensor faults)",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT r.received_at AS \"time\", r.device_id, r.reason\nFROM rejected_readings r\nWHERE $__timeFilter(r.received_at)\nORDER BY r.received_at DESC\nLIMIT 100",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 9,
+      "title": "Battery Levels",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT DISTINCT ON (t.device_id) t.device_id, t.battery_pct\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '5 minutes'\n  AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 50
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    }
+  ]
+}

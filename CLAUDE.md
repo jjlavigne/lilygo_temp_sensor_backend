@@ -27,12 +27,25 @@ this file is the reference for what the device does.
 
 ## ⚠️ Never delete the `pgdata` volume without asking
 
-`pgdata` is the named Docker volume holding all PostgreSQL data. **Always ask Julia
-before running anything that would destroy it**, including:
+The volume holding all PostgreSQL data. **Always ask Julia before running anything
+that would destroy it**, including:
 
 - `docker compose down -v` (the `-v` is the dangerous part)
-- `docker volume rm pgdata` / `docker volume prune`
+- `docker volume rm` / `docker volume prune`
 - `docker system prune --volumes`
+
+**The real volume names are prefixed by the compose project**, which the compose file
+does not show:
+
+| In `docker-compose.yml` | Actual Docker volume |
+|---|---|
+| `pgdata` | `fleet-telemetry-pipeline_pgdata` |
+| `grafana-storage` | `fleet-telemetry-pipeline_grafana-storage` |
+
+Mounting the unprefixed name does not fail — Docker silently creates a **new empty
+volume** with that name, which looks like the real one and contains nothing. If a
+backup or mount comes back suspiciously empty, this is why. Always confirm against
+`docker volume ls` first.
 
 `docker compose down` without `-v` is safe. When in doubt, prefer `docker compose stop`.
 The same caution applies to `grafana-storage`, which holds the manually-configured
@@ -71,6 +84,64 @@ file over the README.
 
 Python deps are `paho-mqtt` and `psycopg2-binary`; there is no requirements.txt or
 virtualenv checked in.
+
+## ⚠️ Grafana reads as `grafana_viewer` — new tables need an explicit GRANT
+
+The Grafana datasource does not connect as `admin`. It uses a read-only role,
+`grafana_viewer`, which is good practice and also a tripwire: **a table created by
+`admin` is invisible to Grafana until it is granted.** The symptom is an alert rule or
+panel failing with `permission denied for table X (SQLSTATE 42501)` while the identical
+query works fine in `psql -U admin`.
+
+A default privilege is now in place so tables `admin` creates from here on are granted
+automatically:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE admin IN SCHEMA public
+  GRANT SELECT ON TABLES TO grafana_viewer;
+```
+
+Tables created *before* that still need `GRANT SELECT ON <table> TO grafana_viewer;`.
+
+## Multi-tenancy: the `devices` table
+
+Company and site live in `devices`, keyed on `device_id` — **never in the MQTT payload**.
+A device that reports its own tenant could claim to be another company's, which stops
+being a bug and becomes a breach once customers share one database.
+
+| Column | Purpose |
+|---|---|
+| `device_id` | PK, matches `telemetry.device_id` |
+| `company`, `site` | Tenant and location; the alert grouping labels |
+| `temp_min_c`, `temp_max_c` | That company's safe band — Plymouth 2–6, Nikky USA −23–−18 |
+| `expected_interval_s` | Feeds the staleness alert |
+| `is_simulated` | False only for `TRUCK-LILYGO-001` |
+
+Adding a company is rows in this table plus a block in `fleet_simulator.py` — no code
+or dashboard changes. Every panel and alert reads limits from here.
+
+## Alerting (live, in Grafana)
+
+Two rules in folder **Fleet Monitoring**, group `Slack Integration`, evaluating every 10s:
+
+- **Fleet Temperature Excursion** — per device, both directions, compared against that
+  device's own company limits. Fires on `excursion_c > 0`.
+- **Fleet Sensor Offline** — per device, fires when silence exceeds
+  `3 × expected_interval_s` (60s floor). Catches what a temperature rule cannot: a dead
+  sensor produces no rows, so a threshold rule has nothing to evaluate.
+
+Both use **simplified routing** (`notification_settings.receiver`) straight to the
+existing `Slack Integration` contact point, grouped by `alertname, company, site`. They
+do **not** go through the global notification policy tree.
+
+> **Never provision alerting from files here.** Grafana's alerting provisioning
+> *replaces* the notification config wholesale, which would destroy the working Slack
+> contact point (its webhook is encrypted in `grafana.db` and cannot be read back).
+> Edit rules via the API with the `X-Disable-Provenance: true` header — that keeps them
+> editable in the UI instead of locking them as read-only.
+
+A broken probe surfaces as **offline**, not as a temperature alert: its −127 °C readings
+are rejected by ingestion, so it simply stops producing rows.
 
 ## Telemetry payload and schema
 

@@ -1,0 +1,20 @@
+# Secrets -- never commit these
+.env
+
+# Volume backups (large binaries, regenerate with docker run ... tar czf)
+*-backup.tar.gz
+
+# PlatformIO build output (37 MB of compiled artifacts, regenerated on every build)
+.pio/
+**/.pio/
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local machine settings
+.claude/settings.local.json
+
+# OS noise
+Thumbs.db
+desktop.ini

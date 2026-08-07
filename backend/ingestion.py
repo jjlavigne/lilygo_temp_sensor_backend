@@ -1,4 +1,5 @@
 import json
+import time
 import paho.mqtt.client as mqtt
 import psycopg2
 import datetime
@@ -17,16 +18,40 @@ DB_NAME = "fleet_data"
 DB_USER = "admin"
 DB_PASSWORD = "password123"
 
-def init_db():
-    """Connects to the database and ensures the telemetry table exists."""
+# --- Plausibility bounds -- NOT the alert thresholds ---
+# These exist for one job only: reject values the DS18B20 physically cannot produce.
+# A disconnected probe reports -127.0, which is a broken wire, not a temperature.
+#
+# "Too warm" is deliberately NOT decided here. Alert limits differ per company
+# (produce runs 2 to 6 C, frozen goods run -23 to -18 C) and they live in the
+# devices table, evaluated by Grafana. If this script discarded readings for being
+# alarming, they would never reach the database, and Grafana could never alert on
+# them -- you cannot raise an alarm about a reading you deleted.
+SENSOR_MIN_C = -55.0
+SENSOR_MAX_C = 125.0
+
+# Module-level connection handle. Deliberately rebuilt on demand rather than opened
+# once at startup, so a Postgres restart does not permanently break ingestion.
+db_conn = None
+
+
+def connect_db(quiet=False):
+    """Open a fresh connection to Postgres. Returns None on failure."""
     try:
-        # Attemps to open a network connection to the Postgres database using the credentials from the config block
-        conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD)
-        # Creates a "cursor" object (the physical vehicle that carries my SQL commands into the database and brings the results back)
-        cursor = conn.cursor()
-        
-        # Create the table if it doesn't already exist
-        create_table_query = """
+        return psycopg2.connect(
+            host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
+        )
+    except Exception as e:
+        if not quiet:
+            print(f"Database connection failed. Is the Postgres container running? Error: {e}")
+        return None
+
+
+def ensure_schema(conn):
+    """Create the tables if they don't already exist. Safe to call repeatedly."""
+    cursor = conn.cursor()
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS telemetry (
             id SERIAL PRIMARY KEY,
             device_id VARCHAR(50) NOT NULL,
@@ -36,107 +61,198 @@ def init_db():
             longitude REAL,
             battery_pct INTEGER
         );
-        """
-        cursor.execute(create_table_query) #Hands the SQL command to the cursor to run 
-        conn.commit() # Saves the changes. The DB doesnt finalize structural changes or data insertions until you explicitely "commit" them
-        print("Database initialized and table verified.")
-        return conn, cursor
-    except Exception as e:
-        print(f"Database connection failed. Is the Postgres container running? Error: {e}")
-        return None, None
+    """)
 
-# Initialize Database Connection
-db_conn, db_cursor = init_db()
+    # Rejected readings are recorded rather than silently discarded. Without this,
+    # a probe that fell off and a truck in a dead zone look identical -- both are
+    # just a gap in the data. For a cold chain record, an unexplained gap is a
+    # liability, so we keep the evidence.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS rejected_readings (
+            id SERIAL PRIMARY KEY,
+            device_id VARCHAR(50),
+            received_at TIMESTAMP NOT NULL,
+            reason VARCHAR(60) NOT NULL,
+            raw_payload TEXT
+        );
+    """)
+
+    conn.commit()
+    cursor.close()
+
+
+def close_connection():
+    """Drop the current handle so the next write builds a fresh one."""
+    global db_conn
+    if db_conn is not None:
+        try:
+            db_conn.close()
+        except Exception:
+            pass
+    db_conn = None
+
+
+def get_connection():
+    """Return a live connection, reconnecting if the previous one died."""
+    global db_conn
+    if db_conn is not None and db_conn.closed == 0:
+        return db_conn
+
+    db_conn = connect_db(quiet=True)
+    if db_conn is not None:
+        ensure_schema(db_conn)
+        print("Database connection established.")
+    return db_conn
+
+
+def execute_write(query, params):
+    """
+    Run a write, reconnecting once if the connection has gone away.
+
+    This is the fix for the failure that used to kill the service: the connection
+    was opened once at import, so when Postgres restarted, every later insert
+    failed forever and the rollback in the error handler failed too. The script
+    stayed running and silently stored nothing until somebody noticed.
+    """
+    for attempt in (1, 2):
+        conn = get_connection()
+        if conn is None:
+            if attempt == 2:
+                print("Dropped message: database unreachable.")
+            continue
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            conn.commit()
+            cursor.close()
+            return True
+
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            # The connection itself is broken. Throw it away and let attempt 2
+            # build a new one.
+            print(f"Lost database connection ({type(e).__name__}). Reconnecting...")
+            close_connection()
+
+        except Exception as e:
+            # A real query error (bad data, constraint violation). The connection
+            # is still fine, so roll back the partial transaction and give up on
+            # this one message rather than retrying it.
+            print(f"Database insertion error: {e}")
+            try:
+                conn.rollback()
+            except Exception:
+                close_connection()
+            return False
+
+    return False
+
+
+def record_rejection(device_id, reason, raw_payload):
+    """Log a reading we refused to store, so the gap can be explained later."""
+    print(f"Rejected [{reason}] from {device_id or 'unknown device'}")
+    execute_write("""
+        INSERT INTO rejected_readings (device_id, received_at, reason, raw_payload)
+        VALUES (%s, %s, %s, %s);
+    """, (
+        device_id,
+        datetime.datetime.now(datetime.timezone.utc),
+        reason,
+        raw_payload[:2000],   # guard against a runaway payload
+    ))
+
 
 def on_connect(client, userdata, flags, rc):
-    """A "callback" function that is automatically triggered the moment the script successfully logs into the MQTT broker"""
-    if rc == 0:  # rc stands for return code. A code of 0 means the connection was flawless
+    """Callback fired the moment the script logs into the MQTT broker."""
+    if rc == 0:  # rc is the return code; 0 means the connection was flawless
         print(f"Connected to MQTT Broker! Listening to topic: {MQTT_TOPIC}")
-        client.subscribe(MQTT_TOPIC) # After connection is established, this immeditaely tells the broker to forward every message published to fleet/telemetry
+        client.subscribe(MQTT_TOPIC)
     else:
         print(f"Failed to connect to broker, return code {rc}")
+        if rc in (4, 5):
+            print("  -> Broker rejected the credentials. Check MQTT_USER/MQTT_PASS against pwfile.")
 
 
-# The heart of the script. Gets called everytime the Lilygo publishes a reading
-# If the DB is offline, it immediately drops the message rather than crashing the script trying to save it 
 def on_message(client, userdata, msg):
     """Fires every time a new message arrives on the subscribed topic."""
-    if not db_conn:
-        print("Dropped message: No database connection.")
+    raw = msg.payload.decode("utf-8", errors="replace")
+
+    # 1. Parse the JSON payload into a Python dictionary
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        record_rejection(None, "malformed_json", raw)
         return
 
+    if not isinstance(payload, dict):
+        record_rejection(None, "payload_not_an_object", raw)
+        return
+
+    # 2. Structural validation -- lat/lon/battery stay optional because the LilyGO
+    #    sends partial payloads when it has no GPS fix.
+    device_id = payload.get("device_id")
+    if not device_id or "temperature_c" not in payload:
+        record_rejection(device_id, "missing_required_keys", raw)
+        return
+
+    # 3. Plausibility check -- is this a number a real sensor could produce?
     try:
-        # 1. Decodes the JSON payload into a readable string
-        # Parses string into a Python dictionary so values can be accessed via keys
-        payload = json.loads(msg.payload.decode('utf-8'))
+        temp = float(payload["temperature_c"])
+    except (TypeError, ValueError):
+        record_rejection(device_id, "temperature_not_a_number", raw)
+        return
 
+    if not (SENSOR_MIN_C <= temp <= SENSOR_MAX_C):
+        # -127.0 lands here, which is the DS18B20's disconnected-probe signature.
+        record_rejection(device_id, "implausible_temperature", raw)
+        return
 
-        # --- ADDED VALIDATION BLOCK FOR SECURITY STARTS HERE ---
+    # 4. Store it. Every plausible reading is kept, including alarming ones --
+    #    Grafana decides which of these are excursions.
+    lat = payload.get("lat")
+    lon = payload.get("lon")
+    battery_pct = payload.get("battery_pct")
 
-        # Structural Validation. Checks if the incoming JSON actually contains all necessary data (Ensure keys exist)
-        # required_keys = ['device_id', 'temperature_c', 'lat', 'lon', 'battery_pct']
-        required_keys = ['device_id', 'temperature_c']
-        # If the LilyGO glitches and sends half a payload, this blocks it from ruining your database schema 
-        if not all(k in payload for k in required_keys):
-            print("Dropped message: Missing required JSON keys.")
-            return
-
-        # Value Boundary Checking (Checks the physical limits so we don't add an invalid temp to the DB) 
-        # (Must change threshold after discussing with company what they should be)
-        temp = float(payload['temperature_c'])
-        # if not (-23.0 <= temp <= -18.0): **Switch to this threshold for actual industry threshold**
-        if not (-40.0 <= temp <= 101.0): # Assuming cold chain transportation limits
-            print(f"Dropped message: Abnormal temperature detected ({temp}°C). Please check Temperature Sensor.")
-            return
-
-        # --- VALIDATION BLOCK ENDS HERE ---
-
-    
-        lat = payload.get('lat')
-        lon = payload.get('lon')
-        battery_pct = payload.get('battery_pct')
-
-        # If it passes validation, proceed with logging and insertion
-        # print(f"Received valid data from {payload['device_id']}: {payload['temperature_c']}°C")
-        print(f"Received valid data from {payload['device_id']} | Temp: {payload['temperature_c']}°C | Battery: {payload.get('battery_pct')}%")
-
-        # 2. Insert the data safely to prevent SQL injection
-        insert_query = """
+    stored = execute_write("""
         INSERT INTO telemetry (device_id, recorded_at, temperature_c, latitude, longitude, battery_pct)
         VALUES (%s, %s, %s, %s, %s, %s);
-        """
-        db_cursor.execute(insert_query, (
-            payload['device_id'],
-            datetime.datetime.now(datetime.timezone.utc),
-            payload['temperature_c'],
-            lat,
-            lon,
-            battery_pct
-        ))
-        db_conn.commit()
-        
-    # If anything goes wrong during the try block (bad JSON, database timeout), it jumps down here
-    except json.JSONDecodeError:
-        print("Error: Received malformed JSON payload.")
-    except Exception as e:
-        print(f"Database insertion error: {e}")
-        db_conn.rollback() # if a DB error occurs mid-insertion, this completely undoes the partial transaction so you dont end up with corrupted data fragments 
+    """, (
+        device_id,
+        datetime.datetime.now(datetime.timezone.utc),
+        temp,
+        lat,
+        lon,
+        battery_pct,
+    ))
+
+    if stored:
+        print(f"Stored {device_id} | Temp: {temp}°C | Battery: {battery_pct}%")
+
 
 # --- Main Execution loop ---
 if __name__ == "__main__":
-    if db_conn:
-        client = mqtt.Client()
-        client.on_connect = on_connect
-        client.on_message = on_message
+    print("Starting Backend Ingestion Service...")
 
-        try:
-            print("Starting Backend Ingestion Service...")
-            client.username_pw_set(MQTT_USER, MQTT_PASS) # Passes secure credentials to the broker 
-            client.connect(MQTT_BROKER, MQTT_PORT, 60) 
-            client.loop_forever() # Keeps the script running and listening
-        except KeyboardInterrupt:
-            print("\nShutting down service...") # CTRL C will close the cursor, safely disconnect from PostgreSQL, and drop the MQTT connection before shutting down 
-        finally:
-            db_cursor.close()
-            db_conn.close()
-            client.disconnect()
+    # Wait for Postgres rather than exiting, so this can start alongside the
+    # containers without a race on which comes up first.
+    for attempt in range(10):
+        if get_connection() is not None:
+            break
+        print(f"  Waiting for database... ({attempt + 1}/10)")
+        time.sleep(3)
+    else:
+        print("Database not reachable yet -- starting anyway and will keep retrying.")
+
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    try:
+        client.username_pw_set(MQTT_USER, MQTT_PASS)
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        client.loop_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down service...")
+    finally:
+        close_connection()
+        client.disconnect()
