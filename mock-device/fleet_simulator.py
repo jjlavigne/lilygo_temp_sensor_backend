@@ -102,6 +102,15 @@ REAL_EXPECTED_INTERVAL_S = REAL_DEVICE_INTERVAL_S
 # frozen-goods hauler do not share limits. This is what makes per-tenant alerting
 # meaningful rather than one global threshold applied to everybody.
 
+# One site per company, except Nikky USA which runs two. Multiple sensors at the
+# same site are separate freezer units inside one facility -- which is why the GPS
+# jitter below is small: they should cluster on the map like units in a building,
+# not scatter across a city.
+
+AUBURN_WA = {"name": "Auburn WA", "lat": 47.3073, "lon": -122.2285}
+SEATTLE_WA = {"name": "Seattle WA", "lat": 47.6062, "lon": -122.3321}
+PORTLAND_OR = {"name": "Portland OR", "lat": 45.5152, "lon": -122.6784}
+
 COMPANIES = [
     {
         "name": "Plymouth",
@@ -109,10 +118,7 @@ COMPANIES = [
         "cargo": "chilled produce",
         "temp_min_c": 2.0,
         "temp_max_c": 6.0,
-        "sites": [
-            {"name": "Seattle DC", "lat": 47.6062, "lon": -122.3321},
-            {"name": "Tacoma Yard", "lat": 47.2529, "lon": -122.4443},
-        ],
+        "sites": [AUBURN_WA],
     },
     {
         "name": "Aloha",
@@ -120,10 +126,7 @@ COMPANIES = [
         "cargo": "chilled produce",
         "temp_min_c": 1.0,
         "temp_max_c": 5.0,
-        "sites": [
-            {"name": "Honolulu Port", "lat": 21.3069, "lon": -157.8583},
-            {"name": "Kahului Depot", "lat": 20.8893, "lon": -156.4729},
-        ],
+        "sites": [PORTLAND_OR],
     },
     {
         "name": "Nikky USA",
@@ -131,10 +134,7 @@ COMPANIES = [
         "cargo": "frozen goods",
         "temp_min_c": -23.0,
         "temp_max_c": -18.0,
-        "sites": [
-            {"name": "Portland Cold Store", "lat": 45.5152, "lon": -122.6784},
-            {"name": "Boise Transfer", "lat": 43.6150, "lon": -116.2023},
-        ],
+        "sites": [SEATTLE_WA, PORTLAND_OR],
     },
     {
         "name": "S&J",
@@ -142,15 +142,13 @@ COMPANIES = [
         "cargo": "dairy",
         "temp_min_c": 0.0,
         "temp_max_c": 4.0,
-        "sites": [
-            {"name": "Spokane Hub", "lat": 47.6588, "lon": -117.4260},
-            {"name": "Yakima Line", "lat": 46.6021, "lon": -120.5059},
-        ],
+        "sites": [AUBURN_WA],
     },
 ]
 
-# The physical board sits on the demo bench, grouped under Plymouth.
-REAL_DEVICE_SITE = {"name": "Demo Bench", "lat": 47.6062, "lon": -122.3321}
+# The physical board is one of Plymouth's Auburn units, so Plymouth keeps a single
+# site and the live device groups with its siblings in alerts and on the map.
+REAL_DEVICE_SITE = AUBURN_WA
 
 
 # --- Device behavior states ---------------------------------------------------
@@ -187,9 +185,10 @@ class SimulatedDevice:
         self.pending_state = None
         self.recover_at_s = None
 
-        # Small per-device GPS jitter so map markers do not stack perfectly.
-        self.lat = site["lat"] + random.uniform(-0.02, 0.02)
-        self.lon = site["lon"] + random.uniform(-0.02, 0.02)
+        # Tiny jitter (~100m) so co-located freezer units are individually
+        # clickable on the map without looking like they are in different suburbs.
+        self.lat = site["lat"] + random.uniform(-0.001, 0.001)
+        self.lon = site["lon"] + random.uniform(-0.001, 0.001)
 
     def schedule_failure(self, state, after_s, recover_after_s=None):
         """
