@@ -2,7 +2,7 @@
 .env
 
 # Volume backups (large binaries, regenerate with docker run ... tar czf)
-*-backup.tar.gz
+*.tar.gz
 
 # PlatformIO build output (37 MB of compiled artifacts, regenerated on every build)
 .pio/

@@ -1,0 +1,43 @@
+// Copy to config.h and fill in real values. config.h holds live credentials.
+//
+// NOTE: config.h is currently TRACKED in git and has been pushed to GitHub with
+// real WiFi credentials in it. Those want rotating. Once they are, untrack the
+// real file (`git rm --cached src/config.h`), add it to .gitignore, and keep
+// this example as the thing that ships.
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// --- WiFi networks ---
+// main.cpp connects with FRAME_SSID by default; the others are alternates you
+// swap to by editing the WiFi.begin() call in setup_wifi().
+const char* FRAME_SSID     = "";
+const char* FRAME_PASS     = "";
+
+const char* WIFI_SSID      = "";
+const char* WIFI_PASS      = "";
+
+const char* HOMEWIFI_SSID  = "";
+const char* HOMEWIFI_PASS  = "";
+
+const char* HOTSPOT_SSID   = "";
+const char* HOTSPOT_PASS   = "";
+
+// --- Broker ---
+// The IP of the VM running docker compose, ON THE NETWORK THE BOARD IS JOINING.
+// This changes between home and office. If the board connects to WiFi but the
+// ping fails, this is almost always why -- re-check and reflash.
+const char* MQTT_BROKER = "10.80.149.11";
+const int   MQTT_PORT   = 1883;
+const char* MQTT_TOPIC  = "fleet/telemetry";
+
+// Must match mosquitto/pwfile. The broker runs allow_anonymous false, so a
+// board without these is rejected with client state 4 or 5.
+const char* MQTT_USER   = "";
+const char* MQTT_PASS   = "";
+
+// Must exist in the devices table, or readings are stored but appear in no
+// company-scoped panel. Registered by: fleet_simulator.py --setup-db
+const char* DEVICE_ID   = "TRUCK-LILYGO-001";
+
+#endif
