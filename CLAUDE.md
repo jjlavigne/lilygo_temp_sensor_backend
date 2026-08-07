@@ -158,6 +158,32 @@ do **not** go through the global notification policy tree.
 A broken probe surfaces as **offline**, not as a temperature alert: its −127 °C readings
 are rejected by ingestion, so it simply stops producing rows.
 
+## ⚠️ Units: Celsius stored, Fahrenheit displayed
+
+**Storage is Celsius, always.** The DS18B20 reports Celsius, the firmware sends
+Celsius, the payload field is `temperature_c`, and `devices.temp_min_c` /
+`temp_max_c` are Celsius. Do not convert stored values or add Fahrenheit columns —
+mixing units in storage is how silent bugs get made, and every incoming reading would
+need converting forever after.
+
+**Grafana panels convert in SQL.** Two different conversions, and using the wrong one
+is not obvious from looking at the output:
+
+| Quantity | Conversion |
+|---|---|
+| An absolute temperature | `c * 9.0/5.0 + 32` |
+| A **difference** (e.g. `excursion_c`) | `c * 9.0/5.0` — **no offset** |
+
+Applying `+32` to a delta would report every perfectly healthy device as 32 degrees
+out of range.
+
+**Grafana's `fahrenheit` unit does not convert anything** — it only changes the label.
+Setting it without converting in SQL displays Celsius numbers with °F beside them.
+Always do the arithmetic in the query, then set the unit to match.
+
+Alert *conditions* stay unit-agnostic (`excursion > 0` is true in either scale), so
+thresholds never need touching when display units change.
+
 ## Dashboard: Fleet Status never hides a device
 
 The status table shows **every registered device, always**, with its most recent

@@ -5,7 +5,14 @@ Paste them into Grafana panels and alert rules as-is.
 
 **Datasource:** PostgreSQL, host `telemetry-db:5432` (the Docker service name, not
 `localhost` -- Grafana reaches Postgres over the internal Docker network), database
-`fleet_data`, user `admin`.
+`fleet_data`, user `grafana_viewer` (read-only; new tables need an explicit GRANT).
+
+> **Units.** The database stores **Celsius**. Panels display **Fahrenheit** by
+> converting in SQL. Absolute temperatures use `c * 9.0/5.0 + 32`; a *difference*
+> such as `excursion_c` uses `c * 9.0/5.0` with **no offset**. Grafana's `fahrenheit`
+> unit only relabels — it never converts — so the arithmetic must be in the query.
+> The queries below are shown in Celsius for readability; the live panels wrap the
+> temperature expressions in the conversion above.
 
 ---
 
