@@ -158,6 +158,22 @@ do **not** go through the global notification policy tree.
 A broken probe surfaces as **offline**, not as a temperature alert: its −127 °C readings
 are rejected by ingestion, so it simply stops producing rows.
 
+## Dashboard: Fleet Status never hides a device
+
+The status table shows **every registered device, always**, with its most recent
+reading whatever the age — plus a `last_seen` column rendered as "12 minutes ago" that
+recounts on each refresh. It deliberately has no time bound.
+
+An earlier version limited readings to the last 6 hours, which meant stopping the
+simulator overnight left the command center showing an **empty table**. An old reading
+is information; an empty table is not. A device silent for nine days should say so.
+
+It uses `LEFT JOIN LATERAL ... LIMIT 1` per device rather than `DISTINCT ON` over the
+join: ~6 ms versus ~650 ms on 350k rows, which matters on a panel refreshing every 10
+seconds. Use the same shape for any future "latest reading per device" query.
+
+Statuses: `OK`, `HIGH`, `LOW`, `OFFLINE`, `NEVER SEEN` (registered but never reported).
+
 ## Telemetry payload and schema
 
 Published JSON:
