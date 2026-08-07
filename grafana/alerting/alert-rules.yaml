@@ -1,0 +1,280 @@
+# EXPORTED FOR BACKUP AND REFERENCE -- DO NOT PLACE IN grafana/provisioning/
+#
+# Grafana's alerting provisioning REPLACES the notification config wholesale.
+# Loading this as a provisioning file would destroy the working Slack contact
+# point, whose webhook is encrypted in grafana.db and cannot be read back.
+#
+# To restore: recreate via the API with the X-Disable-Provenance: true header,
+# which also keeps the rules editable in the UI. See CLAUDE.md.
+#
+# Exported: 2026-08-07T17:52:12Z
+---
+apiVersion: 1
+groups:
+    - orgId: 1
+      name: Slack Integration
+      folder: Fleet Monitoring
+      interval: 10s
+      rules:
+        - uid: cfmvv4vyka48wd
+          title: Fleet Temperature Excursion
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: cfmk49pm86epsf
+              model:
+                datasource:
+                    type: postgres
+                    uid: cfmk49pm86epsf
+                editorMode: code
+                format: table
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: |-
+                    SELECT company, site, device_id, safe_range_f, excursion_f
+                    FROM (
+                      SELECT DISTINCT ON (t.device_id)
+                        d.company,
+                        d.site,
+                        t.device_id,
+                        round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||
+                          round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,
+                        GREATEST(
+                          t.temperature_c - d.temp_max_c,
+                          d.temp_min_c - t.temperature_c
+                        ) * 9.0/5.0 AS excursion_f
+                      FROM telemetry t JOIN devices d USING (device_id)
+                      WHERE t.recorded_at > now() - interval '30 minutes'
+                      ORDER BY t.device_id, t.recorded_at DESC
+                    ) latest
+                refId: A
+            - refId: B
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 0
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+            - refId: D
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: cfmk49pm86epsf
+              model:
+                datasource:
+                    type: postgres
+                    uid: cfmk49pm86epsf
+                editorMode: code
+                format: table
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: |-
+                    SELECT company, site, device_id, safe_range_f, temperature_f
+                    FROM (
+                      SELECT DISTINCT ON (t.device_id)
+                        d.company,
+                        d.site,
+                        t.device_id,
+                        round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||
+                          round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,
+                        t.temperature_c * 9.0/5.0 + 32 AS temperature_f
+                      FROM telemetry t JOIN devices d USING (device_id)
+                      WHERE t.recorded_at > now() - interval '30 minutes'
+                      ORDER BY t.device_id, t.recorded_at DESC
+                    ) latest
+                refId: D
+            - refId: E
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: D
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: E
+                settings:
+                    mode: dropNN
+                type: reduce
+          noDataState: OK
+          execErrState: Error
+          annotations:
+            description: Reading {{ printf "%.1f" $values.E.Value }} °F. Safe range {{ $labels.safe_range_f }} °F. Currently {{ printf "%.1f" $values.B.Value }} °F outside the limit.
+            summary: '{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} out of range'
+          labels:
+            severity: critical
+          isPaused: false
+          notification_settings:
+            receiver: Slack Integration
+            group_by:
+                - alertname
+                - company
+                - site
+            group_wait: 5s
+            group_interval: 1m
+            repeat_interval: 5m
+        - uid: efpnadcr4vim8f
+          title: Fleet Sensor Offline
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: cfmk49pm86epsf
+              model:
+                datasource:
+                    type: postgres
+                    uid: cfmk49pm86epsf
+                editorMode: code
+                format: table
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: |-
+                    SELECT
+                      d.company, d.site, d.device_id,
+                      EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))
+                        / GREATEST(d.expected_interval_s * 3, 60) AS silence_ratio
+                    FROM devices d
+                    LEFT JOIN telemetry t ON t.device_id = d.device_id
+                     AND t.recorded_at > now() - interval '6 hours'
+                    GROUP BY d.company, d.site, d.device_id, d.expected_interval_s
+                refId: A
+            - refId: B
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                settings:
+                    mode: dropNN
+                type: reduce
+            - refId: C
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+            - refId: D
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: cfmk49pm86epsf
+              model:
+                datasource:
+                    type: postgres
+                    uid: cfmk49pm86epsf
+                editorMode: code
+                format: table
+                intervalMs: 1000
+                maxDataPoints: 43200
+                rawQuery: true
+                rawSql: |-
+                    SELECT d.company, d.site, d.device_id, t.temperature_f
+                    FROM devices d
+                    LEFT JOIN LATERAL (
+                      SELECT temperature_c * 9.0/5.0 + 32 AS temperature_f
+                      FROM telemetry WHERE device_id = d.device_id
+                      ORDER BY recorded_at DESC LIMIT 1
+                    ) t ON true
+                refId: D
+            - refId: E
+              queryType: expression
+              datasourceUid: __expr__
+              model:
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: D
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: E
+                settings:
+                    mode: dropNN
+                type: reduce
+          noDataState: OK
+          execErrState: Error
+          annotations:
+            description: No readings arriving. Last known temperature {{ printf "%.1f" $values.E.Value }} °F. No data is being recorded for this unit.
+            summary: '{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} offline'
+          labels:
+            severity: warning
+          isPaused: false
+          notification_settings:
+            receiver: Slack Integration
+            group_by:
+                - alertname
+                - company
+                - site
+            group_wait: 5s
+            group_interval: 1m
+            repeat_interval: 5m
