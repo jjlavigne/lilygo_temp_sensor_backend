@@ -58,6 +58,12 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "password123")
 # and shows up on the dashboard, but never simulated.
 REAL_DEVICE_ID = "TRUCK-LILYGO-001"
 
+# What Grafana and Slack show instead of the raw device_id. The id itself is the
+# join key -- it is what the firmware publishes and what every historical row is
+# keyed on -- so it never changes. Only the label does, which means renaming
+# costs nothing: no reflash, no data migration.
+REAL_DEVICE_DISPLAY_NAME = "PLY-REAL-TEMP-00"
+
 SIM_SENSORS_PER_COMPANY = 5
 
 # Plausibility bounds enforced by ingestion.py. Mirrored here so backfilled history
@@ -349,12 +355,15 @@ def setup_db(fleet):
             temp_min_c          REAL NOT NULL,
             temp_max_c          REAL NOT NULL,
             expected_interval_s INTEGER NOT NULL DEFAULT 60,
+            display_name        VARCHAR(50),
             is_simulated        BOOLEAN NOT NULL DEFAULT TRUE
         );
     """)
 
     # Dashboards filter by device and time constantly; without these every panel
     # is a sequential scan once the table has any real history in it.
+    cursor.execute("ALTER TABLE devices ADD COLUMN IF NOT EXISTS display_name VARCHAR(50);")
+
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_telemetry_recorded_at
             ON telemetry (recorded_at DESC);
@@ -366,7 +375,7 @@ def setup_db(fleet):
 
     rows = [
         (d.device_id, d.company["name"], d.site["name"], d.company["cargo"],
-         d.company["temp_min_c"], d.company["temp_max_c"], SIM_EXPECTED_INTERVAL_S, True)
+         d.company["temp_min_c"], d.company["temp_max_c"], SIM_EXPECTED_INTERVAL_S, True, None)
         for d in fleet
     ]
 
@@ -376,11 +385,12 @@ def setup_db(fleet):
     rows.append((
         REAL_DEVICE_ID, plymouth["name"], REAL_DEVICE_SITE["name"], plymouth["cargo"],
         plymouth["temp_min_c"], plymouth["temp_max_c"], REAL_EXPECTED_INTERVAL_S, False,
+        REAL_DEVICE_DISPLAY_NAME,
     ))
 
     execute_values(cursor, """
         INSERT INTO devices (device_id, company, site, cargo, temp_min_c, temp_max_c,
-                             expected_interval_s, is_simulated)
+                             expected_interval_s, is_simulated, display_name)
         VALUES %s
         ON CONFLICT (device_id) DO UPDATE SET
             company             = EXCLUDED.company,
@@ -388,7 +398,8 @@ def setup_db(fleet):
             cargo               = EXCLUDED.cargo,
             temp_min_c          = EXCLUDED.temp_min_c,
             temp_max_c          = EXCLUDED.temp_max_c,
-            expected_interval_s = EXCLUDED.expected_interval_s;
+            expected_interval_s = EXCLUDED.expected_interval_s,
+            display_name        = EXCLUDED.display_name;
     """, rows)
 
     conn.commit()
