@@ -487,12 +487,20 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 4,
             "lineWidth": 1,
-            "showPoints": "never",
-            "spanNulls": false
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "pointSize": 4,
+            "spanNulls": true,
+            "lineInterpolation": "smooth"
           },
-          "unit": "fahrenheit"
+          "unit": "fahrenheit",
+          "links": [
+            {
+              "title": "Open device detail",
+              "url": "/d/device-detail/device-detail?var-device=${__field.name}&${__url_time_range}"
+            }
+          ]
         },
         "overrides": []
       },
@@ -507,7 +515,10 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
         },
         "tooltip": {
           "mode": "multi",
@@ -523,12 +534,13 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  t.recorded_at AS \"time\",\n  COALESCE(d.display_name, t.device_id)      AS metric,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t\nJOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nORDER BY t.recorded_at",
+          "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, t.device_id) AS metric,\n  avg(t.temperature_c * 9.0/5.0 + 32) AS temperature\nFROM telemetry t\nJOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 1",
           "refId": "A"
         }
       ],
       "title": "Temperature History",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Click a series name in the legend to open that device's detail view."
     },
     {
       "datasource": {
@@ -536,7 +548,16 @@
         "uid": "cfmk49pm86epsf"
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "links": [
+            {
+              "title": "Open device detail",
+              "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
+            }
+          ]
+        },
         "overrides": []
       },
       "gridPos": {
@@ -547,33 +568,59 @@
       },
       "id": 7,
       "options": {
+        "view": {
+          "id": "fit",
+          "padding": 15
+        },
         "basemap": {
-          "name": "Basemap",
-          "type": "default"
+          "type": "default",
+          "name": "Basemap"
+        },
+        "controls": {
+          "showZoom": true,
+          "showAttribution": true,
+          "mouseWheelZoom": true
+        },
+        "tooltip": {
+          "mode": "details"
         },
         "layers": [
           {
+            "type": "markers",
+            "name": "Sensors",
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
             "config": {
               "showLegend": false,
-              "size": {
-                "fixed": 8
+              "style": {
+                "size": {
+                  "fixed": 10,
+                  "field": null
+                },
+                "color": {
+                  "field": "temperature",
+                  "fixed": "dark-blue"
+                },
+                "opacity": 0.9,
+                "symbol": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/marker/circle.svg"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": -14,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
               }
             },
-            "location": {
-              "latitude": "latitude",
-              "longitude": "longitude",
-              "mode": "coords"
-            },
-            "name": "Sensors",
-            "type": "markers"
+            "tooltip": true
           }
-        ],
-        "view": {
-          "id": "zero",
-          "lat": 40,
-          "lon": -120,
-          "zoom": 3
-        }
+        ]
       },
       "targets": [
         {
@@ -589,7 +636,8 @@
         }
       ],
       "title": "Fleet Map",
-      "type": "geomap"
+      "type": "geomap",
+      "description": "Marker colour is temperature. Click a marker, then the device name, to drill in."
     },
     {
       "datasource": {
@@ -735,5 +783,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 5
+  "version": 6
 }
