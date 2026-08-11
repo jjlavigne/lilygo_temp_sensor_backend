@@ -99,6 +99,18 @@ REAL_DEVICE_INTERVAL_S = int(os.getenv("REAL_DEVICE_INTERVAL_S", "5"))
 # hourly interval there).
 STALENESS_MULTIPLIER = 3
 
+# --- Battery ------------------------------------------------------------------
+# A real cold-chain sensor reporting every few minutes runs for months on a
+# charge, so drain has to be slow enough that a simulator left running for a week
+# does not wipe out the fleet. At these rates a unit lasts roughly 4-9 months.
+BATTERY_DRAIN_PCT_PER_HOUR = (0.015, 0.035)
+
+# Below this, a field tech swaps the battery. Without it the fleet only ever
+# declines, every unit eventually reads 0%, and the low-battery panel becomes a
+# wall of red that tells you nothing.
+BATTERY_REPLACE_BELOW_PCT = 15.0
+BATTERY_REPLACED_TO = (97.0, 100.0)
+
 SIM_EXPECTED_INTERVAL_S = PUBLISH_INTERVAL_S
 REAL_EXPECTED_INTERVAL_S = REAL_DEVICE_INTERVAL_S
 
@@ -186,6 +198,9 @@ class SimulatedDevice:
         self.temp = self.baseline
 
         self.battery = random.uniform(75.0, 100.0)
+        # Demo props keep a fixed low battery instead of being auto-replaced,
+        # so the low-battery panel always has something to show.
+        self.battery_replaceable = True
         self.state = STATE_NORMAL
         self.fail_after_s = None   # seconds into the run before state kicks in
         self.pending_state = None
@@ -244,8 +259,11 @@ class SimulatedDevice:
             self.temp += (self.baseline - self.temp) * 0.15
             self.temp += random.gauss(0, 0.18)
 
-        # Battery drains slowly; scaled so a long run shows visible decline.
-        self.battery = max(0.0, self.battery - (interval_s / 3600.0) * random.uniform(0.4, 1.2))
+        # Battery drains slowly, then gets swapped rather than dying forever.
+        self.battery = max(0.0, self.battery -
+                           (interval_s / 3600.0) * random.uniform(*BATTERY_DRAIN_PCT_PER_HOUR))
+        if self.battery_replaceable and self.battery < BATTERY_REPLACE_BELOW_PCT:
+            self.battery = random.uniform(*BATTERY_REPLACED_TO)
 
         return self.temp
 
@@ -300,7 +318,10 @@ def apply_scenario(fleet, scenario, forced_failures):
         by_id["NIK-SIM-04"].schedule_failure(STATE_SENSOR_FAULT, after_s=4 * I, recover_after_s=3 * I)
         by_id["SNJ-SIM-01"].schedule_failure(STATE_OFFLINE,      after_s=6 * I, recover_after_s=3 * I)
         by_id["SNJ-SIM-03"].schedule_failure(STATE_OVERCOOL,     after_s=8 * I, recover_after_s=3 * I)
-        by_id["ALO-SIM-05"].battery = 12.0  # low-battery panel has something to show
+        # One unit pinned low as a demo prop -- exempt from replacement so the
+        # low-battery tile is never empty during a presentation.
+        by_id["ALO-SIM-05"].battery = 12.0
+        by_id["ALO-SIM-05"].battery_replaceable = False
 
     elif scenario == "chaos":
         for device in random.sample(fleet, k=max(1, len(fleet) // 4)):
