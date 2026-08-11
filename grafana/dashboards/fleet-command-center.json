@@ -483,24 +483,25 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
+      "description": "Click a series name in the legend to open that device's detail view.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
             "fillOpacity": 0,
-            "showPoints": "auto",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
             "pointSize": 4,
-            "spanNulls": true,
-            "lineInterpolation": "smooth"
+            "showPoints": "auto",
+            "spanNulls": true
           },
-          "unit": "fahrenheit",
           "links": [
             {
               "title": "Open device detail",
               "url": "/d/device-detail/device-detail?var-device=${__field.name}&${__url_time_range}"
             }
-          ]
+          ],
+          "unit": "fahrenheit"
         },
         "overrides": []
       },
@@ -513,12 +514,12 @@
       "id": 6,
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -539,24 +540,24 @@
         }
       ],
       "title": "Temperature History",
-      "type": "timeseries",
-      "description": "Click a series name in the legend to open that device's detail view."
+      "type": "timeseries"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
+      "description": "Opens on the Pacific Northwest, where all sites are. Scroll to zoom. Marker colour is temperature; click one to drill in.",
       "fieldConfig": {
         "defaults": {
-          "unit": "fahrenheit",
           "decimals": 1,
           "links": [
             {
               "title": "Open device detail",
               "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
             }
-          ]
+          ],
+          "unit": "fahrenheit"
         },
         "overrides": []
       },
@@ -568,46 +569,33 @@
       },
       "id": 7,
       "options": {
-        "view": {
-          "id": "fit",
-          "padding": 15
-        },
         "basemap": {
-          "type": "default",
-          "name": "Basemap"
+          "name": "Basemap",
+          "type": "default"
         },
         "controls": {
           "showZoom": true,
           "showAttribution": true,
-          "mouseWheelZoom": true
-        },
-        "tooltip": {
-          "mode": "details"
+          "mouseWheelZoom": true,
+          "showScale": false
         },
         "layers": [
           {
-            "type": "markers",
-            "name": "Sensors",
-            "location": {
-              "mode": "coords",
-              "latitude": "latitude",
-              "longitude": "longitude"
-            },
             "config": {
               "showLegend": false,
               "style": {
-                "size": {
-                  "fixed": 10,
-                  "field": null
-                },
                 "color": {
                   "field": "temperature",
                   "fixed": "dark-blue"
                 },
                 "opacity": 0.9,
+                "size": {
+                  "field": null,
+                  "fixed": 10
+                },
                 "symbol": {
-                  "mode": "fixed",
-                  "fixed": "img/icons/marker/circle.svg"
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
                 },
                 "textConfig": {
                   "fontSize": 12,
@@ -618,9 +606,26 @@
                 }
               }
             },
-            "tooltip": true
+            "location": {
+              "latitude": "latitude",
+              "longitude": "longitude",
+              "mode": "coords"
+            },
+            "name": "Sensors",
+            "tooltip": true,
+            "type": "markers"
           }
-        ]
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "id": "coords",
+          "lat": 46.56,
+          "lon": -122.45,
+          "zoom": 7,
+          "allLayers": true
+        }
       },
       "targets": [
         {
@@ -636,8 +641,7 @@
         }
       ],
       "title": "Fleet Map",
-      "type": "geomap",
-      "description": "Marker colour is temperature. Click a marker, then the device name, to drill in."
+      "type": "geomap"
     },
     {
       "datasource": {
@@ -783,5 +787,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 6
+  "version": 7
 }
