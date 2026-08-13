@@ -574,10 +574,10 @@
           "type": "default"
         },
         "controls": {
-          "showZoom": true,
-          "showAttribution": true,
           "mouseWheelZoom": true,
-          "showScale": false
+          "showAttribution": true,
+          "showScale": false,
+          "showZoom": true
         },
         "layers": [
           {
@@ -620,11 +620,11 @@
           "mode": "details"
         },
         "view": {
+          "allLayers": true,
           "id": "coords",
           "lat": 46.56,
           "lon": -122.45,
-          "zoom": 7,
-          "allLayers": true
+          "zoom": 7
         }
       },
       "targets": [
@@ -649,7 +649,9 @@
         "uid": "cfmk49pm86epsf"
       },
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "No sensor faults - all readings plausible"
+        },
         "overrides": []
       },
       "gridPos": {
@@ -671,12 +673,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  r.received_at AS \"time\",\n  COALESCE(d.display_name, r.device_id) AS device_id,\n  r.reason\nFROM rejected_readings r\nLEFT JOIN devices d ON d.device_id = r.device_id\nWHERE $__timeFilter(r.received_at)\nORDER BY r.received_at DESC\nLIMIT 100",
+          "rawSql": "SELECT\n  r.received_at AS \"time\",\n  COALESCE(d.display_name, r.device_id) AS device_id,\n  d.company,\n  r.reason\nFROM rejected_readings r\nLEFT JOIN devices d ON d.device_id = r.device_id\nWHERE r.received_at > now() - interval '7 days'\nORDER BY r.received_at DESC\nLIMIT 100",
           "refId": "A"
         }
       ],
-      "title": "Rejected Readings (sensor faults)",
-      "type": "table"
+      "title": "Sensor Faults (last 7 days)",
+      "type": "table",
+      "description": "Readings rejected as physically impossible -- a DS18B20 reporting -127 C means a disconnected probe, not a temperature. Empty is good: it means every reading received was plausible. Independent of the dashboard time range, since faults are rare."
     },
     {
       "datasource": {
@@ -787,5 +790,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 7
+  "version": 8
 }
