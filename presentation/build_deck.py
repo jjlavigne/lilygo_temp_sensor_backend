@@ -166,8 +166,8 @@ for i, (t, sub) in enumerate(flow):
 
 tx(s, M, Inches(6.15), CW, Inches(0.75),
    [("The probe never decides what counts as an emergency. It reports, the system judges. "
-     "That's why one platform can watch produce at 40°F and a freezer at −5°F without "
-     "either one getting the other's rules.", 13, False, MUTED, 0)], ls=1.35)
+     "That's why one platform can watch fresh poultry at 30°F and a freezer at −5°F "
+     "without either one getting the other's rules.", 13, False, MUTED, 0)], ls=1.35)
 foot(s, "Built on PostgreSQL, MQTT and Grafana — all open source, all industry standard.")
 notes(s, "Four numbers, then move on. Don't read them out — let them read.\n\n"
          "The bottom line is the one that matters technically: separating 'report' from "
@@ -208,8 +208,8 @@ s = slide(prs)
 header(s, 3, "Alerting", "Three failures, not one")
 rows = [
     ("Too warm, or too cold", COLD,
-     "Each unit judged against its own limits. Produce at 36–43°F and a freezer at "
-     "−9 to 0°F run on the same rule."),
+     "Each unit judged against its own limits. Fresh poultry at 27–34°F and a freezer "
+     "at −9 to 0°F run on the same rule."),
     ("Sensor stops reporting", WARM,
      "A dead sensor sends nothing, so a temperature rule has nothing to fire on. "
      "This one watches for the silence."),
@@ -365,7 +365,8 @@ header(s, 7, "Open items", "What I still have to solve")
 items = [
     ("The probe isn't accurate enough for frozen",
      "The current sensor is rated ±0.9°F only above 14°F. For freezers I move to an RTD "
-     "probe — ±0.27°F across the whole range, $8–15 a unit. Chilled produce is fine as-is."),
+     "probe — ±0.27°F across the whole range, $8–15 a unit. Poultry cold storage at "
+     "27–34°F is inside the accurate band, so those points are fine as they are."),
     ("Calibration has to be auditable",
      "One NIST-traceable reference thermometer, roughly $350, calibrates the whole fleet "
      "with documentation an auditor will accept. The quote charges $125 a sensor for a "

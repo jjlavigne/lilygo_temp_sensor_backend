@@ -131,11 +131,15 @@ PORTLAND_OR = {"name": "Portland OR", "lat": 45.5152, "lon": -122.6784}
 
 COMPANIES = [
     {
+        # Plymouth Poultry, per SmartSense quote #145514. Fresh poultry cold storage
+        # runs roughly 26-34 F, not the 36-43 F of chilled produce -- presenting
+        # produce limits to a poultry company is the sort of detail people notice.
+        # Confirm against the spec Plymouth actually operates to.
         "name": "Plymouth",
         "prefix": "PLY",
-        "cargo": "chilled produce",
-        "temp_min_c": 2.0,
-        "temp_max_c": 6.0,
+        "cargo": "fresh poultry",
+        "temp_min_c": -3.0,     # 26.6 F
+        "temp_max_c": 1.0,      #  33.8 F
         "sites": [AUBURN_WA],
     },
     {
