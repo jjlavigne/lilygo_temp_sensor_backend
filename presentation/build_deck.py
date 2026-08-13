@@ -121,7 +121,7 @@ tx(s, M, Inches(4.75), Inches(9.4), Inches(1.0),
    [("Quote #145514 puts the new Auburn location at $9,202.", 18, False, RGBColor(0xC3, 0xD2, 0xD8), 0)],
    ls=1.35)
 tx(s, M, Inches(5.35), Inches(9.4), Inches(0.5),
-   [("I can cover the same 15 points for $1,544 — and it is already running.", 18, True, PAPER, 0)])
+   [("I can cover the same 15 points for $1,856 — and it is already running.", 18, True, PAPER, 0)])
 rect(s, M, Inches(6.25), Inches(2.2), Inches(0.02), HAIR_D)
 tx(s, M, Inches(6.5), Inches(9), Inches(0.35),
    [("Plymouth Poultry  ·  Auburn WA  ·  prototype demonstration", 11, False, RGBColor(0x6E, 0x82, 0x8C), 0)])
@@ -243,7 +243,7 @@ notes(s, "The middle row is the differentiator. Spend your time there.\n\n"
 
 # ══════════════════════════ 5 · COST, LINE BY LINE ══════════════════════════
 s = slide(prs)
-header(s, 4, "Cost", "Quote #145514, line by line")
+header(s, 4, "Cost", "Every line, both sides")
 
 COL1, COL2, COL3 = M, M + Inches(5.6), M + Inches(8.4)
 tx(s, COL1, Inches(2.32), Inches(5.2), Inches(0.3),
@@ -252,29 +252,47 @@ tx(s, COL2, Inches(2.32), Inches(2.4), Inches(0.3), [("SMARTSENSE", 11, True, WA
 tx(s, COL3, Inches(2.32), Inches(2.4), Inches(0.3), [("MINE", 11, True, COLD, 0)])
 rect(s, M, Inches(2.62), CW, Inches(0.015), HAIR)
 
-lines = [
-    ("Gateways", "4 needed at $599", "$2,396", "$0", "WiFi is built in"),
-    ("Sensor + display", "10 at $245", "$2,450", "$1,050", "15 units at $70"),
-    ("NIST certification", "15 at $125, expires in 24 months", "$1,875", "$350", "one reference, no expiry"),
-    ("Duty, tariff, shipping", "imported hardware", "$407", "$0", "bought domestically"),
-    ("Tax", "10.5%", "$748", "$147", ""),
-    ("Subscription", "per site, per year", "$1,200", "$144", "hosting, all sites"),
+groups = [
+    ("ONE-TIME HARDWARE", [
+        ("Gateways", "4 at $599 — proprietary radio", "$2,396", "$0", "WiFi, no gateway"),
+        ("Sensor unit + display", "10 at $245", "$2,450", "$900", "15 at $60"),
+        ("Probe + NIST certificate", "15 at $125 — expires at 24 months", "$1,875", "$150", "15 probes at $10"),
+        ("Enclosure", "included", "—", "$150", "15 printed at $10"),
+        ("Calibration reference", "n/a — bought per sensor", "—", "$350", "one, covers the fleet"),
+        ("Duty, tariff, freight", "imported", "$407", "$0", "sourced domestically"),
+        ("Sales tax", "10.5%", "$748", "$162", ""),
+    ]),
+    ("ANNUAL", [
+        ("Monitoring subscription", "$100/month, per site", "$1,200", "—", ""),
+        ("Hosting and database", "included above", "—", "$144", "$12/mo, every site"),
+    ]),
+    ("EVERY 24 MONTHS", [
+        ("NIST recertification", "15 probes at $125", "$1,875", "$150", "recalibrate in-house"),
+    ]),
 ]
-y = Inches(2.85)
-for name, detail, ss, mine, note in lines:
-    tx(s, COL1, y, Inches(4.2), Inches(0.28), [(name, 13.5, True, INK, 0)])
-    tx(s, COL1, y + Inches(0.26), Inches(5.2), Inches(0.26), [(detail, 11, False, MUTED, 0)])
-    tx(s, COL2, y + Inches(0.02), Inches(2.3), Inches(0.3), [(ss, 15, False, WARM, 0, DISPLAY)])
-    tx(s, COL3, y + Inches(0.02), Inches(2.3), Inches(0.3), [(mine, 15, False, COLD, 0, DISPLAY)])
-    if note:
-        tx(s, COL3, y + Inches(0.28), Inches(3.0), Inches(0.26), [(note, 10.5, False, MUTED, 0)])
-    y += Inches(0.62)
+y = Inches(2.78)
+for gname, rows in groups:
+    tx(s, COL1, y, Inches(5.2), Inches(0.24), [(gname, 9.5, True, FAINT, 0)])
+    y += Inches(0.26)
+    for name, detail, ss, mine, note in rows:
+        tx(s, COL1, y, Inches(4.4), Inches(0.24), [(name, 12, True, INK, 0)])
+        tx(s, COL1 + Inches(2.75), y + Inches(0.015), Inches(2.8), Inches(0.24),
+           [(detail, 9.5, False, MUTED, 0)])
+        tx(s, COL2, y - Inches(0.01), Inches(2.3), Inches(0.26), [(ss, 13, False, WARM, 0, DISPLAY)])
+        tx(s, COL3, y - Inches(0.01), Inches(2.0), Inches(0.26), [(mine, 13, False, COLD, 0, DISPLAY)])
+        if note:
+            tx(s, COL3 + Inches(1.15), y + Inches(0.015), Inches(2.6), Inches(0.24),
+               [(note, 9.5, False, MUTED, 0)])
+        y += Inches(0.315)
+    y += Inches(0.1)
 
 rect(s, M, y + Inches(0.02), CW, Inches(0.02), INK)
-tx(s, COL1, y + Inches(0.18), Inches(4.5), Inches(0.35), [("First year", 17, True, INK, 0)])
-tx(s, COL2, y + Inches(0.14), Inches(2.4), Inches(0.4), [("$9,202", 24, False, WARM, 0, DISPLAY)])
-tx(s, COL3, y + Inches(0.14), Inches(2.4), Inches(0.4), [("$1,544", 24, False, COLD, 0, DISPLAY)])
-foot(s, "Their figures are taken directly from the quote. Mine are at the same 15 monitoring points.")
+tx(s, COL1, y + Inches(0.16), Inches(2.6), Inches(0.32), [("First year", 15, True, INK, 0)])
+tx(s, COL2, y + Inches(0.12), Inches(2.4), Inches(0.36), [("$9,202", 20, False, WARM, 0, DISPLAY)])
+tx(s, COL3, y + Inches(0.12), Inches(2.4), Inches(0.36), [("$1,856", 20, False, COLD, 0, DISPLAY)])
+tx(s, COL3 + Inches(1.6), y + Inches(0.2), Inches(2.4), Inches(0.3),
+   [("80% lower", 12, True, GOOD, 0)])
+foot(s, "Left column is taken from the quote. Right column is my build at the same 15 monitoring points.")
 notes(s, "This is the slide that does the work, because none of it is my estimate — "
          "the left column is their own quote.\n\n"
          "Two lines to point at:\n\n"
@@ -289,7 +307,7 @@ s = slide(prs, DARK)
 header(s, 5, "Cost", "The same site, five years out", dark=True)
 
 BAR_X, BAR_W = M, Inches(8.2)
-SS_TOTAL, MY_TOTAL = 18256, 2420
+SS_TOTAL, MY_TOTAL = 18256, 2882
 
 tx(s, BAR_X, Inches(2.5), Inches(4), Inches(0.3), [("SMARTSENSE", 11.5, True, WARM_LT, 0)])
 rect(s, BAR_X, Inches(2.85), BAR_W, Inches(0.78), WARM)
@@ -302,14 +320,14 @@ tx(s, BAR_X, Inches(3.74), Inches(9), Inches(0.3),
 tx(s, BAR_X, Inches(4.5), Inches(4), Inches(0.3), [("MINE", 11.5, True, COLD_LT, 0)])
 rect(s, BAR_X, Inches(4.85), Inches(BAR_W * MY_TOTAL / SS_TOTAL), Inches(0.78), COLD)
 tx(s, BAR_X + Inches(1.35), Inches(4.9), Inches(2.8), Inches(0.6),
-   [("$2,420", 32, False, PAPER, 0, DISPLAY)])
+   [("$2,882", 32, False, PAPER, 0, DISPLAY)])
 tx(s, BAR_X, Inches(5.74), Inches(9), Inches(0.3),
-   [("$1,050 hardware   +   $650 calibration   +   $720 hosting",
+   [("$1,712 hardware and setup   +   $450 recalibration   +   $720 hosting",
      12, False, RGBColor(0x8E, 0xA2, 0xAB), 0)])
 
 rect(s, M + Inches(9.85), Inches(2.5), Inches(0.015), Inches(3.35), HAIR_D)
 tx(s, M + Inches(10.2), Inches(2.6), Inches(2.3), Inches(1.6),
-   [("$15,836", 30, False, COLD_LT, 0, DISPLAY),
+   [("$15,374", 30, False, COLD_LT, 0, DISPLAY),
     ("saved on this\nsite alone", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 8)], ls=1.3)
 tx(s, M + Inches(10.2), Inches(4.5), Inches(2.3), Inches(1.4),
    [("87%", 30, False, COLD_LT, 0, DISPLAY),
@@ -330,34 +348,44 @@ notes(s, "Say the number once. Then stop talking and let them do the arithmetic 
 s = slide(prs)
 header(s, 6, "Installation", "Wall power, and a probe through the door seal")
 left = [
-    ("Mains powered", "Freezers and server rooms both have power. No batteries to manage, "
-                      "and no dead sensor because nobody swapped a cell."),
-    ("Probe through the gasket", "A flat cable passes through the door seal without "
-                                 "compromising it. Nothing gets drilled, nothing gets modified."),
-    ("Enclosure I print myself", "About $10, and I can change the shape for whatever "
-                                 "mounting a site needs."),
+    ("The unit mounts outside, the probe goes in",
+     "A flat cable passes through the door seal without compromising it. Nothing gets "
+     "drilled and nothing about the freezer gets modified."),
+    ("That's also why it needs no gateway",
+     "Because the radio sits outside the metal box, it reaches the building WiFi "
+     "directly. No proprietary protocol, no $599 gateways, no extra hardware to fail."),
+    ("Mains powered",
+     "Freezers and server rooms both have power within a few feet. Nothing to charge, "
+     "and no sensor going dark because a battery was missed."),
 ]
 y = Inches(2.4)
 for head, body in left:
-    tx(s, M, y, Inches(6.0), Inches(0.32), [(head, 16, True, INK, 0)])
-    tx(s, M, y + Inches(0.36), Inches(5.9), Inches(0.75),
+    tx(s, M, y, Inches(6.0), Inches(0.62), [(head, 16, True, INK, 0)], ls=1.2)
+    tx(s, M, y + Inches(0.62), Inches(5.9), Inches(0.75),
        [(body, 12.5, False, MUTED, 0)], ls=1.35)
-    y += Inches(1.32)
+    y += Inches(1.42)
 
-rect(s, M + Inches(6.55), Inches(2.35), Inches(4.95), Inches(3.55), PANEL, rounded=True)
+rect(s, M + Inches(6.55), Inches(2.35), Inches(4.95), Inches(3.7), PANEL, rounded=True)
 tx(s, M + Inches(6.95), Inches(2.62), Inches(4.2), Inches(0.35),
-   [("WHY NOT BATTERIES", 11.5, True, WARM, 0)])
-tx(s, M + Inches(6.95), Inches(3.08), Inches(4.2), Inches(2.6),
-   [("Lithium cells lose 20–40% of their capacity at freezer temperatures.", 13.5, False, INK, 0),
-    ("Every one of these installs is somewhere with a wall socket a few feet away. "
-     "Running on mains removes an entire category of failure — and it's why I can "
-     "report every few minutes instead of once an hour.", 12.5, False, MUTED, 10)], ls=1.35)
+   [("WHY THEIRS NEEDS FOUR GATEWAYS", 11.5, True, WARM, 0)])
+tx(s, M + Inches(6.95), Inches(3.08), Inches(4.2), Inches(2.7),
+   [("A wireless sensor sitting inside a metal freezer has a hard radio problem.",
+     13.5, False, INK, 0),
+    ("That's the problem their proprietary protocol and gateways exist to solve. "
+     "Putting the electronics outside and running only the probe through the seal "
+     "avoids the problem instead of paying to work around it.", 12.5, False, MUTED, 10),
+    ("Same reason mains power is straightforward: the unit is never inside the cold.",
+     12.5, True, INK, 10)], ls=1.35)
 foot(s, "Same hardware for warehouse freezers and server rooms — only the temperature limits differ.")
-notes(s, "Facilities teams worry you're going to drill into a freezer wall. Say early "
-         "that nothing gets drilled — flat gasket cables are standard practice.\n\n"
-         "The battery box pre-empts the obvious question. Mains isn't a compromise here, "
-         "it's the right answer: everything we're monitoring is a fixed installation with "
-         "power already at it.")
+notes(s, "This slide answers the question a technical person will ask: if their system "
+         "needs four gateways, why doesn't yours?\n\n"
+         "The answer isn't that mine is cleverer. It's that the electronics sit outside "
+         "the freezer, so the radio never has to get through a metal wall. Their design "
+         "puts the whole sensor inside, which is a genuinely hard RF problem, and gateways "
+         "are how you solve it.\n\n"
+         "Confirm before presenting: WiFi coverage at the freezers, whether IT will allow "
+         "the device on the network, and that the network is 2.4GHz -- the board doesn't "
+         "do 5GHz.")
 
 # ══════════════════════════ 7 · OPEN ITEMS ══════════════════════════
 s = slide(prs)
