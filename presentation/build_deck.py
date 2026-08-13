@@ -121,7 +121,7 @@ tx(s, M, Inches(4.75), Inches(9.4), Inches(1.0),
    [("Quote #145514 puts the new Auburn location at $9,202.", 18, False, RGBColor(0xC3, 0xD2, 0xD8), 0)],
    ls=1.35)
 tx(s, M, Inches(5.35), Inches(9.4), Inches(0.5),
-   [("I can cover the same 15 points for $1,856 — and it is already running.", 18, True, PAPER, 0)])
+   [("I can cover the same 15 points for $1,178 — and it is already running.", 18, True, PAPER, 0)])
 rect(s, M, Inches(6.25), Inches(2.2), Inches(0.02), HAIR_D)
 tx(s, M, Inches(6.5), Inches(9), Inches(0.35),
    [("Plymouth Poultry  ·  Auburn WA  ·  prototype demonstration", 11, False, RGBColor(0x6E, 0x82, 0x8C), 0)])
@@ -136,7 +136,7 @@ header(s, 1, "The system", "It already works. Here's what's running.")
 stats = [
     ("21", "sensors reporting", "across 4 companies and 5 sites"),
     ("< 20s", "breach to Slack", "from probe to phone"),
-    ("$70", "per monitoring point", "against $370 on the quote"),
+    ("$35", "per monitoring point", "against $370 on the quote"),
     ("0", "gateways needed", "WiFi is built into the board"),
 ]
 bw = (CW - Inches(0.75)) / 4
@@ -255,19 +255,22 @@ rect(s, M, Inches(2.62), CW, Inches(0.015), HAIR)
 groups = [
     ("ONE-TIME HARDWARE", [
         ("Gateways", "4 at $599 — proprietary radio", "$2,396", "$0", "WiFi, no gateway"),
-        ("Sensor unit + display", "10 at $245", "$2,450", "$900", "15 at $60"),
-        ("Probe + NIST certificate", "15 at $125 — expires at 24 months", "$1,875", "$150", "15 probes at $10"),
-        ("Enclosure", "included", "—", "$150", "15 printed at $10"),
-        ("Calibration reference", "n/a — bought per sensor", "—", "$350", "one, covers the fleet"),
+        ("Controller board", "included in sensor unit", "—", "$105", "15 ESP32 at $7"),
+        ("Sensor unit + display", "10 at $245", "$2,450", "—", ""),
+        ("Temperature probe", "15 at $125 with NIST cert", "$1,875", "$150", "15 at $10"),
+        ("Power supply", "included", "—", "$150", "15 at $10"),
+        ("Enclosure", "included", "—", "$120", "15 printed at $8"),
+        ("Calibration reference", "n/a — priced per sensor", "—", "$350", "one, covers the fleet"),
+        ("On-site server", "n/a — vendor cloud", "—", "$180", "mini PC, runs everything"),
         ("Duty, tariff, freight", "imported", "$407", "$0", "sourced domestically"),
-        ("Sales tax", "10.5%", "$748", "$162", ""),
+        ("Sales tax", "10.5%", "$748", "$111", ""),
     ]),
     ("ANNUAL", [
         ("Monitoring subscription", "$100/month, per site", "$1,200", "—", ""),
-        ("Hosting and database", "included above", "—", "$144", "$12/mo, every site"),
+        ("Hosting and database", "included above", "—", "$12", "electricity, self-hosted"),
     ]),
     ("EVERY 24 MONTHS", [
-        ("NIST recertification", "15 probes at $125", "$1,875", "$150", "recalibrate in-house"),
+        ("Recertification", "15 probes at $125", "$1,875", "$150", "reference only, in-house"),
     ]),
 ]
 y = Inches(2.78)
@@ -289,9 +292,9 @@ for gname, rows in groups:
 rect(s, M, y + Inches(0.02), CW, Inches(0.02), INK)
 tx(s, COL1, y + Inches(0.16), Inches(2.6), Inches(0.32), [("First year", 15, True, INK, 0)])
 tx(s, COL2, y + Inches(0.12), Inches(2.4), Inches(0.36), [("$9,202", 20, False, WARM, 0, DISPLAY)])
-tx(s, COL3, y + Inches(0.12), Inches(2.4), Inches(0.36), [("$1,856", 20, False, COLD, 0, DISPLAY)])
+tx(s, COL3, y + Inches(0.12), Inches(2.4), Inches(0.36), [("$1,178", 20, False, COLD, 0, DISPLAY)])
 tx(s, COL3 + Inches(1.6), y + Inches(0.2), Inches(2.4), Inches(0.3),
-   [("80% lower", 12, True, GOOD, 0)])
+   [("87% lower", 12, True, GOOD, 0)])
 foot(s, "Left column is taken from the quote. Right column is my build at the same 15 monitoring points.")
 notes(s, "This is the slide that does the work, because none of it is my estimate — "
          "the left column is their own quote.\n\n"
@@ -307,7 +310,7 @@ s = slide(prs, DARK)
 header(s, 5, "Cost", "The same site, five years out", dark=True)
 
 BAR_X, BAR_W = M, Inches(8.2)
-SS_TOTAL, MY_TOTAL = 18256, 2882
+SS_TOTAL, MY_TOTAL = 18256, 1538
 
 tx(s, BAR_X, Inches(2.5), Inches(4), Inches(0.3), [("SMARTSENSE", 11.5, True, WARM_LT, 0)])
 rect(s, BAR_X, Inches(2.85), BAR_W, Inches(0.78), WARM)
@@ -320,17 +323,17 @@ tx(s, BAR_X, Inches(3.74), Inches(9), Inches(0.3),
 tx(s, BAR_X, Inches(4.5), Inches(4), Inches(0.3), [("MINE", 11.5, True, COLD_LT, 0)])
 rect(s, BAR_X, Inches(4.85), Inches(BAR_W * MY_TOTAL / SS_TOTAL), Inches(0.78), COLD)
 tx(s, BAR_X + Inches(1.35), Inches(4.9), Inches(2.8), Inches(0.6),
-   [("$2,882", 32, False, PAPER, 0, DISPLAY)])
+   [("$1,538", 32, False, PAPER, 0, DISPLAY)])
 tx(s, BAR_X, Inches(5.74), Inches(9), Inches(0.3),
-   [("$1,712 hardware and setup   +   $450 recalibration   +   $720 hosting",
+   [("$1,178 hardware and setup   +   $300 recalibration   +   $60 electricity",
      12, False, RGBColor(0x8E, 0xA2, 0xAB), 0)])
 
 rect(s, M + Inches(9.85), Inches(2.5), Inches(0.015), Inches(3.35), HAIR_D)
 tx(s, M + Inches(10.2), Inches(2.6), Inches(2.3), Inches(1.6),
-   [("$15,374", 30, False, COLD_LT, 0, DISPLAY),
+   [("$16,718", 30, False, COLD_LT, 0, DISPLAY),
     ("saved on this\nsite alone", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 8)], ls=1.3)
 tx(s, M + Inches(10.2), Inches(4.5), Inches(2.3), Inches(1.4),
-   [("87%", 30, False, COLD_LT, 0, DISPLAY),
+   [("92%", 30, False, COLD_LT, 0, DISPLAY),
     ("lower over\nfive years", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 8)], ls=1.3)
 
 tx(s, M, Inches(6.4), CW, Inches(0.5),
