@@ -118,13 +118,13 @@ tx(s, M, Inches(2.6), Inches(10.6), Inches(2.0),
    [("Temperature monitoring,", 46, False, PAPER, 0, DISPLAY),
     ("built in-house", 46, False, COLD_LT, 0, DISPLAY)], ls=1.08)
 tx(s, M, Inches(4.75), Inches(9.4), Inches(1.0),
-   [("Same job as SmartSense. Roughly a tenth of the cost.", 18, False, RGBColor(0xC3, 0xD2, 0xD8), 0)],
+   [("Quote #145514 puts the new Auburn location at $9,202.", 18, False, RGBColor(0xC3, 0xD2, 0xD8), 0)],
    ls=1.35)
 tx(s, M, Inches(5.35), Inches(9.4), Inches(0.5),
-   [("The unit on the table is live and reporting right now.", 18, True, PAPER, 0)])
+   [("I can cover the same 15 points for $1,544 — and it is already running.", 18, True, PAPER, 0)])
 rect(s, M, Inches(6.25), Inches(2.2), Inches(0.02), HAIR_D)
 tx(s, M, Inches(6.5), Inches(9), Inches(0.35),
-   [("Prototype demonstration  ·  Plymouth", 11, False, RGBColor(0x6E, 0x82, 0x8C), 0)])
+   [("Plymouth Poultry  ·  Auburn WA  ·  prototype demonstration", 11, False, RGBColor(0x6E, 0x82, 0x8C), 0)])
 notes(s, "Open with the object, not the slide. Pick up the board.\n\n"
          "'This has been running for six days. Everything you're about to see on screen "
          "is coming from it, or from twenty simulated units I built to prove it scales.'\n\n"
@@ -136,8 +136,8 @@ header(s, 1, "The system", "It already works. Here's what's running.")
 stats = [
     ("21", "sensors reporting", "across 4 companies and 5 sites"),
     ("< 20s", "breach to Slack", "from probe to phone"),
-    ("$70", "per monitoring point", "hardware, case and all"),
-    ("0", "per-site licences", "adding a site costs nothing"),
+    ("$70", "per monitoring point", "against $370 on the quote"),
+    ("0", "gateways needed", "WiFi is built into the board"),
 ]
 bw = (CW - Inches(0.75)) / 4
 x = M
@@ -241,56 +241,94 @@ notes(s, "The middle row is the differentiator. Spend your time there.\n\n"
          "failure mode that actually loses product.\n\n"
          "A silent sensor is worse than a warm one. A warm one you can see.")
 
-# ══════════════════════════ 5 · COST ══════════════════════════
+# ══════════════════════════ 5 · COST, LINE BY LINE ══════════════════════════
+s = slide(prs)
+header(s, 4, "Cost", "Quote #145514, line by line")
+
+COL1, COL2, COL3 = M, M + Inches(5.6), M + Inches(8.4)
+tx(s, COL1, Inches(2.32), Inches(5.2), Inches(0.3),
+   [("AUBURN WA — 15 MONITORING POINTS", 11, True, MUTED, 0)])
+tx(s, COL2, Inches(2.32), Inches(2.4), Inches(0.3), [("SMARTSENSE", 11, True, WARM, 0)])
+tx(s, COL3, Inches(2.32), Inches(2.4), Inches(0.3), [("MINE", 11, True, COLD, 0)])
+rect(s, M, Inches(2.62), CW, Inches(0.015), HAIR)
+
+lines = [
+    ("Gateways", "4 needed at $599", "$2,396", "$0", "WiFi is built in"),
+    ("Sensor + display", "10 at $245", "$2,450", "$1,050", "15 units at $70"),
+    ("NIST certification", "15 at $125, expires in 24 months", "$1,875", "$350", "one reference, no expiry"),
+    ("Duty, tariff, shipping", "imported hardware", "$407", "$0", "bought domestically"),
+    ("Tax", "10.5%", "$748", "$147", ""),
+    ("Subscription", "per site, per year", "$1,200", "$144", "hosting, all sites"),
+]
+y = Inches(2.85)
+for name, detail, ss, mine, note in lines:
+    tx(s, COL1, y, Inches(4.2), Inches(0.28), [(name, 13.5, True, INK, 0)])
+    tx(s, COL1, y + Inches(0.26), Inches(5.2), Inches(0.26), [(detail, 11, False, MUTED, 0)])
+    tx(s, COL2, y + Inches(0.02), Inches(2.3), Inches(0.3), [(ss, 15, False, WARM, 0, DISPLAY)])
+    tx(s, COL3, y + Inches(0.02), Inches(2.3), Inches(0.3), [(mine, 15, False, COLD, 0, DISPLAY)])
+    if note:
+        tx(s, COL3, y + Inches(0.28), Inches(3.0), Inches(0.26), [(note, 10.5, False, MUTED, 0)])
+    y += Inches(0.62)
+
+rect(s, M, y + Inches(0.02), CW, Inches(0.02), INK)
+tx(s, COL1, y + Inches(0.18), Inches(4.5), Inches(0.35), [("First year", 17, True, INK, 0)])
+tx(s, COL2, y + Inches(0.14), Inches(2.4), Inches(0.4), [("$9,202", 24, False, WARM, 0, DISPLAY)])
+tx(s, COL3, y + Inches(0.14), Inches(2.4), Inches(0.4), [("$1,544", 24, False, COLD, 0, DISPLAY)])
+foot(s, "Their figures are taken directly from the quote. Mine are at the same 15 monitoring points.")
+notes(s, "This is the slide that does the work, because none of it is my estimate — "
+         "the left column is their own quote.\n\n"
+         "Two lines to point at:\n\n"
+         "GATEWAYS. Their sensors talk a proprietary protocol and need four gateways to "
+         "reach the network. Mine have WiFi built in. That's $2,396 that simply doesn't "
+         "exist on my side.\n\n"
+         "NIST, 24 MONTHS. It sits under 'one time items' but it expires. That's $1,875 "
+         "again in two years, and again in four. My reference thermometer is bought once.")
+
+# ══════════════════════════ 6 · FIVE YEARS ══════════════════════════
 s = slide(prs, DARK)
-header(s, 4, "Cost", "Five years, four sites", dark=True)
+header(s, 5, "Cost", "The same site, five years out", dark=True)
 
-BAR_X, BAR_W = M, Inches(8.4)
-SS_TOTAL, MY_TOTAL = 31400, 2470
+BAR_X, BAR_W = M, Inches(8.2)
+SS_TOTAL, MY_TOTAL = 18256, 2420
 
-tx(s, BAR_X, Inches(2.45), Inches(4), Inches(0.3),
-   [("SMARTSENSE", 11.5, True, WARM_LT, 0)])
-rect(s, BAR_X, Inches(2.8), BAR_W, Inches(0.72), WARM)
-tx(s, BAR_X + BAR_W + Inches(0.3), Inches(2.85), Inches(2.6), Inches(0.6),
-   [("$31,400", 30, False, PAPER, 0, DISPLAY)])
-tx(s, BAR_X, Inches(3.62), Inches(8), Inches(0.3),
-   [("$7,400 hardware   +   $24,000 in subscriptions", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 0)])
-
-tx(s, BAR_X, Inches(4.35), Inches(4), Inches(0.3),
-   [("MINE", 11.5, True, COLD_LT, 0)])
-rect(s, BAR_X, Inches(4.7), Inches(BAR_W * MY_TOTAL / SS_TOTAL), Inches(0.72), COLD)
-tx(s, BAR_X + Inches(0.95), Inches(4.75), Inches(2.6), Inches(0.6),
-   [("$2,470", 30, False, PAPER, 0, DISPLAY)])
-tx(s, BAR_X, Inches(5.52), Inches(8.4), Inches(0.3),
-   [("$1,400 hardware   +   $350 calibration reference   +   $720 hosting",
+tx(s, BAR_X, Inches(2.5), Inches(4), Inches(0.3), [("SMARTSENSE", 11.5, True, WARM_LT, 0)])
+rect(s, BAR_X, Inches(2.85), BAR_W, Inches(0.78), WARM)
+tx(s, BAR_X + BAR_W + Inches(0.3), Inches(2.9), Inches(2.8), Inches(0.6),
+   [("$18,256", 32, False, PAPER, 0, DISPLAY)])
+tx(s, BAR_X, Inches(3.74), Inches(9), Inches(0.3),
+   [("$9,202 first year   +   $5,304 subscriptions   +   $3,750 NIST recertification",
      12, False, RGBColor(0x8E, 0xA2, 0xAB), 0)])
 
-rect(s, M + Inches(9.9), Inches(2.45), Inches(0.015), Inches(3.4), HAIR_D)
-side = [("$370", "their cost per point"), ("$70", "mine"),
-        ("$100", "their monthly fee, per site"), ("$12", "mine, all sites")]
-y = Inches(2.45)
-for big, lab in side:
-    tx(s, M + Inches(10.25), y, Inches(2.2), Inches(0.42),
-       [(big, 21, False, PAPER, 0, DISPLAY)])
-    tx(s, M + Inches(10.25), y + Inches(0.38), Inches(2.2), Inches(0.42),
-       [(lab, 10.5, False, RGBColor(0x8E, 0xA2, 0xAB), 0)], ls=1.2)
-    y += Inches(0.87)
+tx(s, BAR_X, Inches(4.5), Inches(4), Inches(0.3), [("MINE", 11.5, True, COLD_LT, 0)])
+rect(s, BAR_X, Inches(4.85), Inches(BAR_W * MY_TOTAL / SS_TOTAL), Inches(0.78), COLD)
+tx(s, BAR_X + Inches(1.35), Inches(4.9), Inches(2.8), Inches(0.6),
+   [("$2,420", 32, False, PAPER, 0, DISPLAY)])
+tx(s, BAR_X, Inches(5.74), Inches(9), Inches(0.3),
+   [("$1,050 hardware   +   $650 calibration   +   $720 hosting",
+     12, False, RGBColor(0x8E, 0xA2, 0xAB), 0)])
 
-tx(s, M, Inches(6.35), CW, Inches(0.5),
-   [("About $29,000 back over five years — and the gap widens with every site we add.",
+rect(s, M + Inches(9.85), Inches(2.5), Inches(0.015), Inches(3.35), HAIR_D)
+tx(s, M + Inches(10.2), Inches(2.6), Inches(2.3), Inches(1.6),
+   [("$15,836", 30, False, COLD_LT, 0, DISPLAY),
+    ("saved on this\nsite alone", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 8)], ls=1.3)
+tx(s, M + Inches(10.2), Inches(4.5), Inches(2.3), Inches(1.4),
+   [("87%", 30, False, COLD_LT, 0, DISPLAY),
+    ("lower over\nfive years", 12, False, RGBColor(0x8E, 0xA2, 0xAB), 8)], ls=1.3)
+
+tx(s, M, Inches(6.4), CW, Inches(0.5),
+   [("And this quote is for one new location. Every site after it widens the gap.",
      19, False, PAPER, 0, DISPLAY)])
-foot(s, "Modelled on four sites at five monitoring points each. Replace with our real counts.", dark=True)
-notes(s, "REPLACE THESE NUMBERS with Plymouth's real site count before you present. "
-         "The maths only gets better — their cost is per-site, mine isn't.\n\n"
-         "Say the big number once, then stop talking. Let it sit.\n\n"
-         "If pushed on the $12 hosting: it's a small cloud server running the whole stack. "
-         "Storage is nothing — twenty sensors generate about 350MB a year.\n\n"
-         "The $350 calibration reference is a single NIST-traceable thermometer that "
-         "calibrates the entire fleet. That's the answer to 'but theirs come pre-calibrated'.")
+foot(s, "Subscription held flat at today's rate. NIST recertified at 24 and 48 months, as quoted.", dark=True)
+notes(s, "Say the number once. Then stop talking and let them do the arithmetic themselves.\n\n"
+         "The assumptions are deliberately conservative: I held their subscription flat "
+         "rather than assuming increases, and I only counted two NIST recertifications.\n\n"
+         "The last line is the real point. This quote is for a NEW location — it hasn't "
+         "been signed yet. That's the decision on the table, and every location after it "
+         "carries the same gap again.")
 
 # ══════════════════════════ 6 · INSTALLATION ══════════════════════════
 s = slide(prs)
-header(s, 5, "Installation", "Wall power, and a probe through the door seal")
+header(s, 6, "Installation", "Wall power, and a probe through the door seal")
 left = [
     ("Mains powered", "Freezers and server rooms both have power. No batteries to manage, "
                       "and no dead sensor because nobody swapped a cell."),
@@ -323,15 +361,15 @@ notes(s, "Facilities teams worry you're going to drill into a freezer wall. Say 
 
 # ══════════════════════════ 7 · OPEN ITEMS ══════════════════════════
 s = slide(prs)
-header(s, 6, "Open items", "What I still have to solve")
+header(s, 7, "Open items", "What I still have to solve")
 items = [
     ("The probe isn't accurate enough for frozen",
      "The current sensor is rated ±0.9°F only above 14°F. For freezers I move to an RTD "
      "probe — ±0.27°F across the whole range, $8–15 a unit. Chilled produce is fine as-is."),
     ("Calibration has to be auditable",
      "One NIST-traceable reference thermometer, roughly $350, calibrates the whole fleet "
-     "with documentation an auditor will accept. Their $125 per sensor buys the same thing, "
-     "over and over."),
+     "with documentation an auditor will accept. The quote charges $125 a sensor for a "
+     "certificate that expires after 24 months — mine is bought once."),
     ("Security needs hardening before it carries real data",
      "The prototype runs on a trusted network. Production adds encrypted transport and "
      "per-device credentials. Known work, not a surprise."),
@@ -355,7 +393,7 @@ notes(s, "This slide is why they'll believe the rest of the deck.\n\n"
 
 # ══════════════════════════ 8 · THE ASK ══════════════════════════
 s = slide(prs, DARK)
-header(s, 7, "Next", "Let me run one site for 30 days", dark=True)
+header(s, 8, "Next", "Let me run one site for 30 days", dark=True)
 steps = [
     ("Install alongside what's already there", "Both systems running on the same freezers. "
                                                "Nothing gets turned off."),
