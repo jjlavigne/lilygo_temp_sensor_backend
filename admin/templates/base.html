@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Device Admin{% endblock %} · Fleet</title>
+<style>
+  /* Palette matches Grafana's dark theme so this reads as part of the same
+     system rather than a separate tool bolted on. */
+  :root{
+    --bg:#111217; --panel:#181b1f; --panel2:#1f2329; --line:#2c3235;
+    --ink:#d8d9da; --muted:#8e909a; --faint:#5a5f6a;
+    --accent:#2b8a9e; --accent-lt:#57b8c9;
+    --danger:#d64545; --good:#3d9970; --warn:#e0913a;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+       font-size:14px;line-height:1.5}
+  a{color:var(--accent-lt);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  header{background:var(--panel);border-bottom:1px solid var(--line);
+         padding:0 24px;display:flex;align-items:center;gap:20px;height:56px}
+  header .brand{font-weight:600;font-size:15px;letter-spacing:.01em}
+  header .brand span{color:var(--accent-lt)}
+  header nav{display:flex;gap:18px;margin-left:auto;align-items:center;
+             font-size:13px;color:var(--muted)}
+  header nav .who{color:var(--faint)}
+
+  main{max-width:1180px;margin:0 auto;padding:28px 24px 64px}
+  h1{font-size:21px;font-weight:600;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+
+  .bar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .bar .spacer{margin-left:auto}
+
+  .btn{display:inline-block;padding:7px 14px;border-radius:3px;border:1px solid var(--line);
+       background:var(--panel2);color:var(--ink);font-size:13px;cursor:pointer;
+       font-family:inherit}
+  .btn:hover{background:#272b33;text-decoration:none}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-primary:hover{background:#31a0b8}
+  .btn-sm{padding:4px 10px;font-size:12px}
+  .btn-danger{color:#f0a0a0;border-color:#4a2b2b}
+  .btn-danger:hover{background:#3a2222}
+
+  table{width:100%;border-collapse:collapse;background:var(--panel);
+        border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+     color:var(--muted);font-weight:600;padding:10px 14px;background:var(--panel2);
+     border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#1c2026}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .devname{font-weight:600}
+  .devid{color:var(--faint);font-size:11.5px;font-family:ui-monospace,Consolas,monospace}
+
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;
+        font-weight:600;letter-spacing:.02em}
+  .pill-ok{background:#12291f;color:#6cc59a}
+  .pill-off{background:#3a2a16;color:#e0a95c}
+  .pill-never{background:#2a2436;color:#a892c8}
+  .pill-sim{background:#1e252e;color:#7d93ab}
+  .pill-real{background:#12292c;color:var(--accent-lt)}
+  .pill-retired{background:#2a2a2a;color:#8a8a8a}
+
+  form.card{background:var(--panel);border:1px solid var(--line);border-radius:3px;
+            padding:24px;max-width:720px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field.full{grid-column:1/-1}
+  label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  label .req{color:var(--danger)}
+  input,select{background:var(--bg);border:1px solid var(--line);border-radius:3px;
+               color:var(--ink);padding:8px 10px;font-size:14px;font-family:inherit;
+               width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  input[readonly]{color:var(--faint);background:#0d0e12}
+  .hint{font-size:11.5px;color:var(--faint)}
+  .unit{color:var(--accent-lt);font-weight:600}
+
+  .flash{padding:11px 16px;border-radius:3px;margin-bottom:16px;font-size:13px;
+         border:1px solid}
+  .flash-ok{background:#12291f;border-color:#1f4a35;color:#8fd6b4}
+  .flash-error{background:#2e1a1a;border-color:#5a2f2f;color:#f0a0a0}
+
+  .actions{display:flex;gap:10px;margin-top:24px;padding-top:20px;
+           border-top:1px solid var(--line)}
+  .empty{padding:48px 24px;text-align:center;color:var(--muted);
+         background:var(--panel);border:1px solid var(--line);border-radius:3px}
+  .note{background:var(--panel2);border-left:2px solid var(--accent);padding:10px 14px;
+        font-size:12.5px;color:var(--muted);margin-bottom:18px;border-radius:0 3px 3px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Fleet <span>Device Admin</span></div>
+  <nav>
+    <a href="{{ url_for('index') }}">Devices</a>
+    {% if session.username %}
+      <span class="who">
+        {{ session.username }}{% if session.scope_company %} · {{ session.scope_company }} only{% else %} · all companies{% endif %}
+      </span>
+      <a href="{{ url_for('logout') }}">Sign out</a>
+    {% endif %}
+  </nav>
+</header>
+<main>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      <div class="flash flash-{{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>

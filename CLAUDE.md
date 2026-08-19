@@ -368,3 +368,36 @@ These are tracked files, so they have been pushed to GitHub:
 There is no root `.gitignore`. If the GitHub repo is public these credentials are
 public; they need rotating and moving to env vars / a gitignored `.env` before
 anything else ships. **Do not add further secrets to tracked files** — flag it instead.
+
+## Device admin UI (`admin/`) — the only thing that writes to `devices`
+
+Grafana is read-only; it cannot modify the database under any configuration. The
+`device-admin` container serves the forms for adding devices, changing limits,
+renaming and retiring. It is scoped to the `devices` table alone — there is no
+path from it to `telemetry`.
+
+```
+http://localhost:8080          on the VM
+http://10.80.149.11:8080       from anywhere on the network
+```
+Credentials live in `.env` (`ADMIN_USER` / `ADMIN_PASSWORD`). Both dashboards
+carry a **Manage Devices** link in the top bar.
+
+**⚠️ Temperatures are entered in Fahrenheit and stored in Celsius.** The form
+converts at the boundary and shows the resulting °C live as you type. Do not
+"simplify" this by storing what was typed — a manager who reads 34 °F everywhere
+and types 34 would otherwise store 34 °C (93 °F), and the freezer would never
+alarm.
+
+**`device_id` is deliberately not editable.** It is the join key for every
+historical reading and what the firmware publishes; changing it orphans the data.
+`display_name` exists for renaming and is freely editable.
+
+**Retiring is a soft delete** (`devices.is_active = false`). Readings are kept.
+
+### Per-company access is built but open
+
+`admin_users.scope_company` is `NULL` for every user, meaning full access to all
+companies. Set it to a company name and that user sees and edits only that
+company — every query already filters through `scope_clause()`. Restricting
+someone is one `UPDATE`, not a code change.

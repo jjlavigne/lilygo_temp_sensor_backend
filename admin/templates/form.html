@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add device' if mode == 'new' else 'Edit device' }}{% endblock %}
+{% block body %}
+
+<h1>{{ 'Add a device' if mode == 'new' else 'Edit device' }}</h1>
+<p class="sub">
+  {% if mode == 'new' %}
+    The device ID must match exactly what the firmware publishes, or its readings
+    will arrive but belong to nothing.
+  {% else %}
+    The device ID cannot be changed &mdash; it is what links every historical
+    reading to this device. Use the display name instead.
+  {% endif %}
+</p>
+
+<div class="note">
+  Enter temperatures in <strong>&deg;F</strong>. They are converted to &deg;C for
+  storage, because the sensors report Celsius and mixing units in the database is
+  how a freezer ends up never alarming.
+</div>
+
+<form class="card" method="post">
+  <div class="grid">
+
+    <div class="field">
+      <label for="device_id">Device ID {% if mode == 'new' %}<span class="req">*</span>{% endif %}</label>
+      <input id="device_id" name="device_id" value="{{ d.device_id or '' }}"
+             {% if mode == 'edit' %}readonly{% else %}required placeholder="PLY-CHILL-02"{% endif %}>
+      <span class="hint">
+        {% if mode == 'edit' %}Fixed for the life of the device.
+        {% else %}Exactly as the firmware sends it. No spaces.{% endif %}
+      </span>
+    </div>
+
+    <div class="field">
+      <label for="display_name">Display name</label>
+      <input id="display_name" name="display_name" value="{{ d.display_name or '' }}"
+             placeholder="Auburn Freezer 2">
+      <span class="hint">Shown on dashboards and in Slack. Safe to change anytime.</span>
+    </div>
+
+    <div class="field">
+      <label for="company">Company <span class="req">*</span></label>
+      <input id="company" name="company" list="companies" value="{{ d.company or '' }}" required>
+      <datalist id="companies">
+        {% for c in companies %}<option value="{{ c }}">{% endfor %}
+      </datalist>
+      <span class="hint">Pick an existing one or type a new company to create it.</span>
+    </div>
+
+    <div class="field">
+      <label for="site">Site <span class="req">*</span></label>
+      <input id="site" name="site" value="{{ d.site or '' }}" required placeholder="Auburn WA">
+      <span class="hint">Groups alerts and the per-site dashboard.</span>
+    </div>
+
+    <div class="field">
+      <label for="cargo">Cargo type</label>
+      <select id="cargo" name="cargo">
+        <option value="">—</option>
+        {% for c in cargo_types %}
+          <option value="{{ c }}" {% if d.cargo == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">Descriptive only. Limits below are what actually alert.</span>
+    </div>
+
+    <div class="field">
+      <label for="expected_interval_s">Reports every (seconds) <span class="req">*</span></label>
+      <input id="expected_interval_s" name="expected_interval_s" type="number" min="1"
+             value="{{ d.expected_interval_s or 300 }}" required>
+      <span class="hint">Offline alert fires after 3&times; this, minimum 60s.</span>
+    </div>
+
+    <div class="field">
+      <label for="temp_min_f">Minimum safe temperature <span class="unit">&deg;F</span> <span class="req">*</span></label>
+      <input id="temp_min_f" name="temp_min_f" type="number" step="0.1"
+             value="{{ d.temp_min_f if d.temp_min_f is defined else '' }}" required>
+      <span class="hint">Below this raises a LOW alert.</span>
+    </div>
+
+    <div class="field">
+      <label for="temp_max_f">Maximum safe temperature <span class="unit">&deg;F</span> <span class="req">*</span></label>
+      <input id="temp_max_f" name="temp_max_f" type="number" step="0.1"
+             value="{{ d.temp_max_f if d.temp_max_f is defined else '' }}" required>
+      <span class="hint">Above this raises a HIGH alert.</span>
+    </div>
+
+    <div class="field full">
+      <span class="hint" id="preview">&nbsp;</span>
+    </div>
+
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" type="submit">
+      {{ 'Add device' if mode == 'new' else 'Save changes' }}
+    </button>
+    <a class="btn" href="{{ url_for('index') }}">Cancel</a>
+  </div>
+</form>
+
+<script>
+  // Show what will actually be stored, so the F-to-C conversion is visible
+  // rather than something that silently happens on the server.
+  const lo = document.getElementById('temp_min_f');
+  const hi = document.getElementById('temp_max_f');
+  const out = document.getElementById('preview');
+  function f2c(f){ return (parseFloat(f) - 32) * 5 / 9; }
+  function update(){
+    const a = parseFloat(lo.value), b = parseFloat(hi.value);
+    if (isNaN(a) || isNaN(b)) { out.innerHTML = '&nbsp;'; return; }
+    if (a >= b) {
+      out.innerHTML = '<span style="color:#f0a0a0">Minimum must be below the maximum.</span>';
+      return;
+    }
+    out.innerHTML = 'Stored as <strong>' + f2c(a).toFixed(1) + ' &deg;C</strong> to <strong>'
+                  + f2c(b).toFixed(1) + ' &deg;C</strong>.';
+  }
+  lo.addEventListener('input', update);
+  hi.addEventListener('input', update);
+  update();
+</script>
+
+{% endblock %}

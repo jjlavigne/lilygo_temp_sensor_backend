@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Devices{% endblock %}
+{% block body %}
+
+<h1>Devices</h1>
+<p class="sub">
+  {% if scope %}Showing {{ scope }} only.{% else %}Showing every company.{% endif %}
+  Temperatures are shown and entered in &deg;F; they are stored in &deg;C.
+</p>
+
+<div class="bar">
+  <a class="btn btn-primary" href="{{ url_for('new_device') }}">+ Add device</a>
+  <div class="spacer"></div>
+  {% if show_retired %}
+    <a class="btn btn-sm" href="{{ url_for('index') }}">Hide retired</a>
+  {% else %}
+    <a class="btn btn-sm" href="{{ url_for('index', retired=1) }}">Show retired</a>
+  {% endif %}
+</div>
+
+{% if devices %}
+<table>
+  <thead>
+    <tr>
+      <th>Device</th>
+      <th>Company</th>
+      <th>Site</th>
+      <th>Cargo</th>
+      <th>Safe range</th>
+      <th>Last reading</th>
+      <th>Reports</th>
+      <th>Type</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for d in devices %}
+    <tr>
+      <td>
+        <div class="devname">{{ d.display_name or d.device_id }}</div>
+        {% if d.display_name %}<div class="devid">{{ d.device_id }}</div>{% endif %}
+      </td>
+      <td>{{ d.company }}</td>
+      <td>{{ d.site }}</td>
+      <td>{{ d.cargo or '—' }}</td>
+      <td class="num">{{ '%.1f'|format(d.temp_min_f) }} – {{ '%.1f'|format(d.temp_max_f) }} &deg;F</td>
+      <td class="num">
+        {% if d.last_temp_f is not none %}
+          {{ '%.1f'|format(d.last_temp_f) }} &deg;F
+        {% else %}
+          <span class="pill pill-never">never seen</span>
+        {% endif %}
+      </td>
+      <td class="num">
+        {% if d.expected_interval_s >= 3600 %}
+          every {{ (d.expected_interval_s // 3600) }} h
+        {% elif d.expected_interval_s >= 60 %}
+          every {{ (d.expected_interval_s // 60) }} min
+        {% else %}
+          every {{ d.expected_interval_s }} s
+        {% endif %}
+      </td>
+      <td>
+        {% if not d.is_active %}<span class="pill pill-retired">retired</span>
+        {% elif d.is_simulated %}<span class="pill pill-sim">simulated</span>
+        {% else %}<span class="pill pill-real">physical</span>{% endif %}
+      </td>
+      <td style="text-align:right;white-space:nowrap">
+        <a class="btn btn-sm" href="{{ url_for('edit_device', device_id=d.device_id) }}">Edit</a>
+        <form method="post" action="{{ url_for('retire', device_id=d.device_id) }}"
+              style="display:inline"
+              onsubmit="return confirm('{{ 'Restore' if not d.is_active else 'Retire' }} {{ d.display_name or d.device_id }}?\n\nIts readings are kept either way.')">
+          <button class="btn btn-sm {% if d.is_active %}btn-danger{% endif %}" type="submit">
+            {{ 'Restore' if not d.is_active else 'Retire' }}
+          </button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <div class="empty">
+    No devices yet.<br><br>
+    <a class="btn btn-primary" href="{{ url_for('new_device') }}">Add the first one</a>
+  </div>
+{% endif %}
+
+{% endblock %}

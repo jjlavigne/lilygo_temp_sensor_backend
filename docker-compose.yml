@@ -84,6 +84,28 @@ services:
       - ingestion
     restart: unless-stopped
 
+  # --- Device admin: the only thing that writes to the devices table ----------
+  # Grafana can only read. This serves the forms for adding devices, changing
+  # limits and renaming. Deliberately scoped to `devices` alone -- there is no
+  # path from here to telemetry.
+  device-admin:
+    build: ./admin
+    container_name: device-admin
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: telemetry-db
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      DB_NAME: ${POSTGRES_DB:-fleet_data}
+      SECRET_KEY: ${ADMIN_SECRET_KEY:-dev-secret-change-me}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-fleet2026}
+    depends_on:
+      telemetry-db:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
   grafana-storage:

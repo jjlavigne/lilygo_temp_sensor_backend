@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div style="max-width:360px;margin:60px auto">
+  <h1>Sign in</h1>
+  <p class="sub">Fleet device administration.</p>
+  <form class="card" method="post" style="padding:22px">
+    <div class="field" style="margin-bottom:16px">
+      <label for="username">Username</label>
+      <input id="username" name="username" autofocus required autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password">
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

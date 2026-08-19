@@ -648,6 +648,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
+      "description": "Readings rejected as physically impossible -- a DS18B20 reporting -127 C means a disconnected probe, not a temperature. Empty is good: it means every reading received was plausible. Independent of the dashboard time range, since faults are rare.",
       "fieldConfig": {
         "defaults": {
           "noValue": "No sensor faults - all readings plausible"
@@ -678,8 +679,7 @@
         }
       ],
       "title": "Sensor Faults (last 7 days)",
-      "type": "table",
-      "description": "Readings rejected as physically impossible -- a DS18B20 reporting -127 C means a disconnected probe, not a temperature. Empty is good: it means every reading received was plausible. Independent of the dashboard time range, since faults are rare."
+      "type": "table"
     },
     {
       "datasource": {
@@ -790,5 +790,19 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 8
+  "version": 9,
+  "links": [
+    {
+      "type": "link",
+      "title": "Manage Devices",
+      "icon": "cog",
+      "url": "http://10.80.149.11:8080",
+      "targetBlank": true,
+      "tooltip": "Add devices, change temperature limits, rename units",
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false,
+      "tags": []
+    }
+  ]
 }
