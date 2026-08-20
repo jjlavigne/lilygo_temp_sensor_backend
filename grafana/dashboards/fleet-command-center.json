@@ -1,6 +1,20 @@
 {
   "editable": true,
   "id": 368023982948352,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "cog",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Manage Devices",
+      "tooltip": "Add devices, change temperature limits, rename units",
+      "type": "link",
+      "url": "http://10.80.149.11:8080"
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -426,7 +440,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "device_id"
+              "options": "device"
             },
             "properties": [
               {
@@ -471,7 +485,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.company,\n  d.site,\n  COALESCE(d.display_name, d.device_id) AS device_id,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  d.temp_min_c * 9.0/5.0 + 32 AS min_ok,\n  d.temp_max_c * 9.0/5.0 + 32 AS max_ok,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
+          "rawSql": "SELECT\n  d.company,\n  d.site,\n  COALESCE(d.display_name, d.device_id) AS device,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  d.temp_min_c * 9.0/5.0 + 32 AS min_ok,\n  d.temp_max_c * 9.0/5.0 + 32 AS max_ok,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
           "refId": "A"
         }
       ],
@@ -636,7 +650,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device_id, t.latitude, t.longitude,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.latitude, t.longitude,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
           "refId": "A"
         }
       ],
@@ -674,7 +688,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  r.received_at AS \"time\",\n  COALESCE(d.display_name, r.device_id) AS device_id,\n  d.company,\n  r.reason\nFROM rejected_readings r\nLEFT JOIN devices d ON d.device_id = r.device_id\nWHERE r.received_at > now() - interval '7 days'\nORDER BY r.received_at DESC\nLIMIT 100",
+          "rawSql": "SELECT\n  r.received_at AS \"time\",\n  COALESCE(d.display_name, r.device_id) AS device,\n  d.company,\n  r.reason\nFROM rejected_readings r\nLEFT JOIN devices d ON d.device_id = r.device_id\nWHERE r.received_at > now() - interval '7 days'\nORDER BY r.received_at DESC\nLIMIT 100",
           "refId": "A"
         }
       ],
@@ -741,7 +755,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device_id, t.battery_pct\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.battery_pct\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
           "refId": "A"
         }
       ],
@@ -790,19 +804,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 9,
-  "links": [
-    {
-      "type": "link",
-      "title": "Manage Devices",
-      "icon": "cog",
-      "url": "http://10.80.149.11:8080",
-      "targetBlank": true,
-      "tooltip": "Add devices, change temperature limits, rename units",
-      "asDropdown": false,
-      "includeVars": false,
-      "keepTime": false,
-      "tags": []
-    }
-  ]
+  "version": 10
 }
