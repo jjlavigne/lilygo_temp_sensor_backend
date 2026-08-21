@@ -55,9 +55,25 @@ DallasTemperature sensors(&oneWire);
 // bogus reading.
 const float DS18B20_DISCONNECTED = -127.0f;
 
-// 2.42" SSD1309 over hardware I2C. If the screen stays blank or shows garbage,
-// try the NONAME2 variant instead — the two differ in column offset, and cheap
-// modules ship as either.
+// --- Display geometry -------------------------------------------------------
+// Cheap SSD1309 modules differ in how the controller maps its 128 columns onto
+// the glass, so anything drawn hard against x=0 or x=127 gets clipped -- in
+// practice worse on the left. Nothing is drawn outside these bounds.
+//
+// IF THE EDGES ARE STILL TRIMMED, raise these two numbers. They are the only
+// values to touch, and the layout re-centres itself around them.
+#define MARGIN_L   6
+#define MARGIN_R   4
+
+#define SCREEN_W   128
+#define X_LEFT     MARGIN_L
+#define X_RIGHT    (SCREEN_W - MARGIN_R)
+#define CONTENT_W  (X_RIGHT - X_LEFT)
+
+// 2.42" SSD1309 over hardware I2C.
+// If the panel is BLANK or shows scrambled pixels -- as opposed to merely
+// clipped -- swap NONAME0 for NONAME2 here. The two variants use different
+// column offsets and cheap modules ship as either.
 U8G2_SSD1309_128X64_NONAME0_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 WiFiClient espClient;
@@ -74,13 +90,13 @@ bool lastPublishOk = false;
 void showStatus(const char *line1, const char *line2) {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_6x12_tf);
-    u8g2.drawStr(0, 12, DEVICE_ID);
-    u8g2.drawHLine(0, 16, 128);
+    u8g2.drawStr(X_LEFT, 12, DEVICE_ID);
+    u8g2.drawHLine(X_LEFT, 16, CONTENT_W);
     u8g2.setFont(u8g2_font_7x13_tf);
-    u8g2.drawStr(0, 38, line1);
+    u8g2.drawStr(X_LEFT, 38, line1);
     if (line2) {
         u8g2.setFont(u8g2_font_6x12_tf);
-        u8g2.drawStr(0, 56, line2);
+        u8g2.drawStr(X_LEFT, 56, line2);
     }
     u8g2.sendBuffer();
 }
@@ -91,14 +107,14 @@ void showReading(float tempC, bool linkUp) {
 
     // Device name along the top, so a wall of these is identifiable at a glance.
     u8g2.setFont(u8g2_font_6x12_tf);
-    u8g2.drawStr(0, 10, DEVICE_ID);
-    u8g2.drawHLine(0, 13, 128);
+    u8g2.drawStr(X_LEFT, 10, DEVICE_ID);
+    u8g2.drawHLine(X_LEFT, 13, CONTENT_W);
 
     if (isnan(tempC) || tempC <= DS18B20_DISCONNECTED) {
         u8g2.setFont(u8g2_font_7x13B_tf);
-        u8g2.drawStr(0, 38, "PROBE FAULT");
+        u8g2.drawStr(X_LEFT, 38, "PROBE FAULT");
         u8g2.setFont(u8g2_font_6x12_tf);
-        u8g2.drawStr(0, 56, "check the sensor wiring");
+        u8g2.drawStr(X_LEFT, 56, "check probe wiring");
         u8g2.sendBuffer();
         return;
     }
@@ -108,32 +124,44 @@ void showReading(float tempC, bool linkUp) {
     float tempF = tempC * 9.0f / 5.0f + 32.0f;
     dtostrf(tempF, 4, 1, buf);
 
+    // Measure the number WHILE the large font is selected. Measuring after
+    // switching to the small font returns the wrong width, which put the "F"
+    // on top of the digits.
     u8g2.setFont(u8g2_font_logisoso24_tn);
-    u8g2.drawStr(2, 44, buf);
+    int numW = u8g2.getStrWidth(buf);
     u8g2.setFont(u8g2_font_7x13B_tf);
-    u8g2.drawStr(2 + u8g2.getStrWidth(buf) + 6, 32, "F");
+    int unitW = u8g2.getStrWidth("F");
+
+    // Centre the whole "73.0 F" group inside the safe area rather than pinning
+    // it left, so trimming a margin does not push it off-screen.
+    int groupX = X_LEFT + (CONTENT_W - (numW + 4 + unitW)) / 2;
+    if (groupX < X_LEFT) groupX = X_LEFT;
+
+    u8g2.setFont(u8g2_font_logisoso24_tn);
+    u8g2.drawStr(groupX, 44, buf);
+    u8g2.setFont(u8g2_font_7x13B_tf);
+    u8g2.drawStr(groupX + numW + 4, 44, "F");
 
 #ifdef DISPLAY_TEMP_MIN_F
     // Advisory only. The authoritative limits live in the devices table and are
     // evaluated by Grafana; these exist so somebody walking past can tell at a
     // glance. If the two ever disagree, the database is right.
+    // y=61 not 62: at 64px tall, descenders on the bottom row clip at 62.
     u8g2.setFont(u8g2_font_6x12_tf);
     if (tempF > DISPLAY_TEMP_MAX_F) {
-        u8g2.drawStr(0, 62, "HIGH");
+        u8g2.drawStr(X_LEFT, 61, "HIGH");
     } else if (tempF < DISPLAY_TEMP_MIN_F) {
-        u8g2.drawStr(0, 62, "LOW");
+        u8g2.drawStr(X_LEFT, 61, "LOW");
     } else {
-        u8g2.drawStr(0, 62, "OK");
+        u8g2.drawStr(X_LEFT, 61, "OK");
     }
-    snprintf(buf, sizeof(buf), "%.0f-%.0f F", (float)DISPLAY_TEMP_MIN_F, (float)DISPLAY_TEMP_MAX_F);
-    u8g2.drawStr(38, 62, buf);
 #endif
 
     // Link state in the corner: a unit that has stopped reporting still shows a
     // temperature, so without this you cannot tell a live reading from a stale one.
     u8g2.setFont(u8g2_font_6x12_tf);
     const char *link = linkUp ? "ONLINE" : "NO LINK";
-    u8g2.drawStr(128 - u8g2.getStrWidth(link), 62, link);
+    u8g2.drawStr(X_RIGHT - u8g2.getStrWidth(link), 61, link);
 
     u8g2.sendBuffer();
 }
