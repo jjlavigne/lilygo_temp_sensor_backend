@@ -160,7 +160,19 @@ def index():
         d["temp_max_f"] = c_to_f(d["temp_max_c"])
         d["last_temp_f"] = c_to_f(d["last_temp_c"]) if d["last_temp_c"] is not None else None
     return render_template("list.html", devices=devices, show_retired=show_retired,
-                           scope=scope())
+                           scope=scope(), discovered_count=len(discovered_devices()))
+
+
+@app.route("/discovered")
+@login_required
+def discovered():
+    rows = discovered_devices()
+    for r in rows:
+        r["latest_f"] = c_to_f(r["latest_c"]) if r["latest_c"] is not None else None
+        # Anything heard from inside 5 minutes is plugged in and talking now,
+        # which is almost always the unit standing in front of you.
+        r["live"] = r["seconds_ago"] is not None and r["seconds_ago"] < 300
+    return render_template("discovered.html", rows=rows)
 
 
 def _validate(form, existing_id=None):
@@ -230,7 +242,13 @@ def new_device():
               data, write=True)
         flash(f"Added {data['display_name'] or data['device_id']}.", "ok")
         return redirect(url_for("index"))
-    return render_template("form.html", d={"expected_interval_s": 300}, mode="new",
+    # Arriving from the discovery page carries the id the device actually sent,
+    # so it cannot be mistyped.
+    prefill = {"expected_interval_s": 300}
+    seen = request.args.get("device_id")
+    if seen:
+        prefill["device_id"] = seen
+    return render_template("form.html", d=prefill, mode="new", from_discovery=bool(seen),
                            cargo_types=CARGO_TYPES, companies=_companies())
 
 
@@ -275,6 +293,34 @@ def retire(device_id):
     flash(f"{'Restored' if new_state else 'Retired'} {device_id}. "
           f"{'' if new_state else 'Its history is kept.'}", "ok")
     return redirect(url_for("index", retired="1" if not new_state else None))
+
+
+def discovered_devices():
+    """
+    Device IDs arriving at the broker that have no row in `devices`.
+
+    ingestion.py stores every plausible reading whether or not the device is
+    registered, so these are already in the database -- they are simply invisible,
+    because every dashboard query joins `devices`. Surfacing them turns
+    provisioning from "type the ID exactly right" into "click the one that just
+    appeared", which is the difference between a typo being possible and not.
+
+    Not scoped by company: an unregistered device does not belong to one yet.
+    """
+    return query("""
+        SELECT t.device_id,
+               count(*)                  AS readings,
+               min(t.recorded_at)        AS first_seen,
+               max(t.recorded_at)        AS last_seen,
+               EXTRACT(EPOCH FROM (now() - max(t.recorded_at))) AS seconds_ago,
+               (SELECT temperature_c FROM telemetry
+                 WHERE device_id = t.device_id
+                 ORDER BY recorded_at DESC LIMIT 1) AS latest_c
+        FROM telemetry t
+        WHERE NOT EXISTS (SELECT 1 FROM devices d WHERE d.device_id = t.device_id)
+        GROUP BY t.device_id
+        ORDER BY max(t.recorded_at) DESC
+    """)
 
 
 def _companies():

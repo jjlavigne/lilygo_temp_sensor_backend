@@ -8,8 +8,21 @@
   Temperatures are shown and entered in &deg;F; they are stored in &deg;C.
 </p>
 
+{% if discovered_count %}
+<div class="flash flash-ok" style="display:flex;align-items:center;gap:14px">
+  <span>
+    <strong>{{ discovered_count }}</strong>
+    device{{ '' if discovered_count == 1 else 's' }} sending readings but not registered.
+    {{ 'Its' if discovered_count == 1 else 'Their' }} data is being stored but is invisible everywhere.
+  </span>
+  <a class="btn btn-sm btn-primary" style="margin-left:auto"
+     href="{{ url_for('discovered') }}">Review</a>
+</div>
+{% endif %}
+
 <div class="bar">
   <a class="btn btn-primary" href="{{ url_for('new_device') }}">+ Add device</a>
+  <a class="btn" href="{{ url_for('discovered') }}">Discovered{% if discovered_count %} ({{ discovered_count }}){% endif %}</a>
   <div class="spacer"></div>
   {% if show_retired %}
     <a class="btn btn-sm" href="{{ url_for('index') }}">Hide retired</a>

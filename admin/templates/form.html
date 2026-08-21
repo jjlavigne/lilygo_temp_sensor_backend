@@ -13,6 +13,13 @@
   {% endif %}
 </p>
 
+{% if from_discovery %}
+<div class="flash flash-ok">
+  Device ID taken from the device itself, so it is guaranteed to match what the
+  firmware publishes. Its existing readings become visible the moment you save.
+</div>
+{% endif %}
+
 <div class="note">
   Enter temperatures in <strong>&deg;F</strong>. They are converted to &deg;C for
   storage, because the sensors report Celsius and mixing units in the database is

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Discovered devices{% endblock %}
+{% block body %}
+
+<h1>Discovered devices</h1>
+<p class="sub">
+  Devices sending readings that aren't registered yet. Their data is already
+  being stored &mdash; it just belongs to nothing, so it appears on no dashboard
+  and triggers no alerts. Registering one makes its whole history visible at once.
+</p>
+
+<div class="bar">
+  <a class="btn" href="{{ url_for('index') }}">&larr; Back to devices</a>
+</div>
+
+{% if rows %}
+<table>
+  <thead>
+    <tr>
+      <th>Device ID</th>
+      <th>Status</th>
+      <th>Latest reading</th>
+      <th>Readings stored</th>
+      <th>First heard</th>
+      <th>Last heard</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><span class="devname" style="font-family:ui-monospace,Consolas,monospace">{{ r.device_id }}</span></td>
+      <td>
+        {% if r.live %}
+          <span class="pill pill-ok">publishing now</span>
+        {% else %}
+          <span class="pill pill-off">gone quiet</span>
+        {% endif %}
+      </td>
+      <td class="num">
+        {% if r.latest_f is not none %}{{ '%.1f'|format(r.latest_f) }} &deg;F{% else %}&mdash;{% endif %}
+      </td>
+      <td class="num">{{ '{:,}'.format(r.readings) }}</td>
+      <td class="num">{{ r.first_seen.strftime('%b %d, %H:%M') }}</td>
+      <td class="num">
+        {% set s = r.seconds_ago | int %}
+        {% if s < 60 %}{{ s }}s ago
+        {% elif s < 3600 %}{{ (s // 60) }} min ago
+        {% elif s < 86400 %}{{ (s // 3600) }} h ago
+        {% else %}{{ (s // 86400) }} d ago{% endif %}
+      </td>
+      <td style="text-align:right">
+        <a class="btn btn-sm btn-primary"
+           href="{{ url_for('new_device', device_id=r.device_id) }}">Register</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="note" style="margin-top:18px">
+  <strong>Commissioning a new sensor:</strong> flash it, power it on, wait for it to
+  appear here marked <em>publishing now</em>, then click Register. The ID comes from
+  the device itself, so it cannot be mistyped &mdash; and the live reading confirms
+  you are registering the unit in front of you. Warm the probe with your hand and
+  watch the temperature move if two are listed.
+</div>
+
+{% else %}
+  <div class="empty">
+    Nothing unregistered.<br><br>
+    <span style="font-size:13px">
+      Every reading arriving at the broker belongs to a registered device.<br>
+      A new sensor will appear here within seconds of being powered on.
+    </span>
+  </div>
+{% endif %}
+
+{% endblock %}
