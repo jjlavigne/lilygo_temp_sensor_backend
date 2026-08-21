@@ -71,10 +71,20 @@ const float DS18B20_DISCONNECTED = -127.0f;
 #define CONTENT_W  (X_RIGHT - X_LEFT)
 
 // 2.42" SSD1309 over hardware I2C.
-// If the panel is BLANK or shows scrambled pixels -- as opposed to merely
-// clipped -- swap NONAME0 for NONAME2 here. The two variants use different
-// column offsets and cheap modules ship as either.
+//
+// These modules ship with one of two column offsets, and U8g2 has a constructor
+// for each. Pick the wrong one and the buffer is written a couple of columns out
+// of step, so the pixels that fall off one edge WRAP AROUND and appear as a
+// stray vertical line at the other -- nothing in this file draws such a line.
+//
+// If you see one, flip this between 0 and 2. Nothing else needs changing.
+#define SSD1309_VARIANT  2
+
+#if SSD1309_VARIANT == 2
+U8G2_SSD1309_128X64_NONAME2_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+#else
 U8G2_SSD1309_128X64_NONAME0_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+#endif
 
 WiFiClient espClient;
 PubSubClient client(espClient);
