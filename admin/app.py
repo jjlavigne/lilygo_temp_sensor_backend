@@ -52,12 +52,19 @@ def connect():
 
 
 def query(sql, params=(), one=False, write=False):
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(sql, params)
-        if write:
-            return None
-        rows = cur.fetchall()
-        return (rows[0] if rows else None) if one else rows
+    # `with conn` commits (or rolls back) but does NOT close -- psycopg2's context
+    # manager manages the transaction, not the connection. Without the finally,
+    # every request leaks a connection until Postgres refuses new ones.
+    conn = connect()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(sql, params)
+            if write:
+                return None
+            rows = cur.fetchall()
+            return (rows[0] if rows else None) if one else rows
+    finally:
+        conn.close()
 
 
 def ensure_schema():

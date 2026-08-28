@@ -54,7 +54,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT t.temperature_c * 9.0/5.0 + 32 AS temperature FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
+          "rawSql": "SELECT t.temperature_c * 9.0/5.0 + 32 AS temperature FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
           "refId": "A"
         }
       ],
@@ -138,7 +138,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK' END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
+          "rawSql": "SELECT CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK' END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
           "refId": "A"
         }
       ],
@@ -206,7 +206,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT t.battery_pct FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
+          "rawSql": "SELECT t.battery_pct FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
           "refId": "A"
         }
       ],
@@ -218,13 +218,13 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
+      "description": "Time since this device's most recent reading.",
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
-          "decimals": 0,
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -245,7 +245,8 @@
                 "value": 86400
               }
             ]
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
@@ -257,6 +258,8 @@
       },
       "id": 4,
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -264,9 +267,7 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value",
-        "colorMode": "background",
-        "graphMode": "none"
+        "textMode": "value"
       },
       "targets": [
         {
@@ -277,13 +278,12 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - t.recorded_at)) AS seconds_ago FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - t.recorded_at)) AS seconds_ago FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
           "refId": "A"
         }
       ],
       "title": "Last Seen",
-      "type": "stat",
-      "description": "Time since this device's most recent reading."
+      "type": "stat"
     },
     {
       "datasource": {
@@ -365,7 +365,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  t.recorded_at AS \"time\",\n  t.temperature_c * 9.0/5.0 + 32 AS \"Temperature\",\n  d.temp_max_c * 9.0/5.0 + 32    AS \"Max safe\",\n  d.temp_min_c * 9.0/5.0 + 32    AS \"Min safe\"\nFROM telemetry t\nJOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND COALESCE(d.display_name, d.device_id) = ${device:sqlstring}\nORDER BY t.recorded_at",
+          "rawSql": "SELECT\n  t.recorded_at AS \"time\",\n  t.temperature_c * 9.0/5.0 + 32 AS \"Temperature\",\n  d.temp_max_c * 9.0/5.0 + 32    AS \"Max safe\",\n  d.temp_min_c * 9.0/5.0 + 32    AS \"Min safe\"\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND COALESCE(d.display_name, d.device_id) = ${device:sqlstring}\nORDER BY t.recorded_at",
           "refId": "A"
         }
       ],
@@ -415,7 +415,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT t.recorded_at AS \"time\", t.battery_pct AS \"Battery\"\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND COALESCE(d.display_name, d.device_id) = ${device:sqlstring} AND t.battery_pct IS NOT NULL\nORDER BY t.recorded_at",
+          "rawSql": "SELECT t.recorded_at AS \"time\", t.battery_pct AS \"Battery\"\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND COALESCE(d.display_name, d.device_id) = ${device:sqlstring} AND t.battery_pct IS NOT NULL\nORDER BY t.recorded_at",
           "refId": "A"
         }
       ],
@@ -515,7 +515,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  t.recorded_at AS \"time\",\n  t.temperature_c * 9.0/5.0 + 32 AS temperature_f,\n  t.battery_pct,\n  t.latitude,\n  t.longitude\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}\nORDER BY t.recorded_at DESC LIMIT 100",
+          "rawSql": "SELECT\n  t.recorded_at AS \"time\",\n  t.temperature_c * 9.0/5.0 + 32 AS temperature_f,\n  t.battery_pct,\n  t.latitude,\n  t.longitude\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}\nORDER BY t.recorded_at DESC LIMIT 100",
           "refId": "A"
         }
       ],
@@ -556,5 +556,5 @@
   "timezone": "browser",
   "title": "Device Detail",
   "uid": "device-detail",
-  "version": 1
+  "version": 2
 }

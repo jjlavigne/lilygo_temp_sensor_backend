@@ -72,7 +72,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"Reporting\" FROM (\n  SELECT d.device_id\n  FROM devices d\n  LEFT JOIN telemetry t ON t.device_id = d.device_id\n       AND t.recorded_at > now() - interval '6 hours'\n  WHERE d.company IN (${company:sqlstring})\n  GROUP BY d.device_id, d.expected_interval_s\n  HAVING EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n         <= GREATEST(d.expected_interval_s * 3, 60)\n) x",
+          "rawSql": "SELECT count(*) AS \"Reporting\" FROM (\n  SELECT d.device_id\n  FROM devices d\n  LEFT JOIN telemetry t ON t.device_id = d.device_id\n       AND t.recorded_at > now() - interval '6 hours'\n  WHERE d.is_active AND d.company IN (${company:sqlstring})\n  GROUP BY d.device_id, d.expected_interval_s\n  HAVING EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n         <= GREATEST(d.expected_interval_s * 3, 60)\n) x",
           "refId": "A"
         }
       ],
@@ -135,7 +135,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"In excursion\" FROM (\n  SELECT DISTINCT ON (t.device_id) t.device_id,\n    GREATEST(t.temperature_c - d.temp_max_c,\n             d.temp_min_c - t.temperature_c) AS excursion_c\n  FROM telemetry t JOIN devices d USING (device_id)\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest WHERE excursion_c > 0",
+          "rawSql": "SELECT count(*) AS \"In excursion\" FROM (\n  SELECT DISTINCT ON (t.device_id) t.device_id,\n    GREATEST(t.temperature_c - d.temp_max_c,\n             d.temp_min_c - t.temperature_c) AS excursion_c\n  FROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest WHERE excursion_c > 0",
           "refId": "A"
         }
       ],
@@ -198,7 +198,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "\nSELECT count(*) AS \"Offline\" FROM (\n  SELECT d.device_id\n  FROM devices d\n  LEFT JOIN telemetry t ON t.device_id = d.device_id\n       AND t.recorded_at > now() - interval '6 hours'\n  WHERE d.company IN (${company:sqlstring})\n  GROUP BY d.device_id, d.expected_interval_s\n  HAVING EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n         > GREATEST(d.expected_interval_s * 3, 60)\n) x",
+          "rawSql": "\nSELECT count(*) AS \"Offline\" FROM (\n  SELECT d.device_id\n  FROM devices d\n  LEFT JOIN telemetry t ON t.device_id = d.device_id\n       AND t.recorded_at > now() - interval '6 hours'\n  WHERE d.is_active AND d.company IN (${company:sqlstring})\n  GROUP BY d.device_id, d.expected_interval_s\n  HAVING EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n         > GREATEST(d.expected_interval_s * 3, 60)\n) x",
           "refId": "A"
         }
       ],
@@ -261,7 +261,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"Low battery\" FROM (\n  SELECT DISTINCT ON (t.device_id) t.device_id, t.battery_pct\n  FROM telemetry t JOIN devices d USING (device_id)\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest WHERE battery_pct < 20",
+          "rawSql": "SELECT count(*) AS \"Low battery\" FROM (\n  SELECT DISTINCT ON (t.device_id) t.device_id, t.battery_pct\n  FROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest WHERE battery_pct < 20",
           "refId": "A"
         }
       ],
@@ -485,7 +485,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.company,\n  d.site,\n  COALESCE(d.display_name, d.device_id) AS device,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  d.temp_min_c * 9.0/5.0 + 32 AS min_ok,\n  d.temp_max_c * 9.0/5.0 + 32 AS max_ok,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
+          "rawSql": "SELECT\n  d.company,\n  d.site,\n  COALESCE(d.display_name, d.device_id) AS device,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  d.temp_min_c * 9.0/5.0 + 32 AS min_ok,\n  d.temp_max_c * 9.0/5.0 + 32 AS max_ok,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
           "refId": "A"
         }
       ],
@@ -549,7 +549,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, t.device_id) AS metric,\n  avg(t.temperature_c * 9.0/5.0 + 32) AS temperature\nFROM telemetry t\nJOIN devices d USING (device_id)\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 1",
+          "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, t.device_id) AS metric,\n  avg(t.temperature_c * 9.0/5.0 + 32) AS temperature\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 1",
           "refId": "A"
         }
       ],
@@ -650,7 +650,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.latitude, t.longitude,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.latitude, t.longitude,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
           "refId": "A"
         }
       ],
@@ -755,7 +755,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.battery_pct\nFROM telemetry t JOIN devices d USING (device_id)\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.battery_pct\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.battery_pct IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
           "refId": "A"
         }
       ],
@@ -804,5 +804,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 10
+  "version": 11
 }
