@@ -395,10 +395,15 @@ historical reading and what the firmware publishes; changing it orphans the data
 
 **Retiring is a soft delete** (`devices.is_active = false`). Readings are kept.
 
-Every dashboard panel and both alert rules filter on `d.is_active`, so a retired
-device disappears from the fleet view, the map, the per-site page and alerting
-together. **Any new query joining `devices` must include that filter**, or
-retired units quietly reappear in that one panel.
+Fleet Command Center, Site View and both alert rules filter on `d.is_active`,
+so a retired device stops cluttering operations and stops alerting. **Any new
+operational query joining `devices` must include that filter**, or retired units
+quietly reappear in that one panel.
+
+**Device Detail deliberately does NOT filter it.** A retired unit's readings are
+exactly what an audit asks for, so its full history stays reachable there and the
+device dropdown marks it `(retired)`. Retiring hides a device from operations; it
+never hides it from the record.
 
 ### Per-company access is built but open
 
