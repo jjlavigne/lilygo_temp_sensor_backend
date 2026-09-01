@@ -206,10 +206,18 @@ is wrong now*, not *what has ever been wrong*.
 
 Supporting panels answer questions their interface cannot:
 
-- **Margin to Nearest Limit** — degrees of headroom per unit, so "nearly in
-  trouble" is visible before it becomes an alert. Uses
-  `LEAST(max - reading, reading - min)`, which works despite each company having
-  different limits.
+- **Watch List** — units still inside their limits but with under a quarter of
+  their safe range left, so "nearly in trouble" is visible before it becomes an
+  alert. Uses `LEAST(max - reading, reading - min)`, which works despite each
+  company having different limits.
+
+  **The threshold is a proportion of the band, not a fixed number of degrees.**
+  Plymouth's band is 7.2 °F wide and Nikky USA's is 9 °F; "within 3 °F" would
+  flag almost the whole fleet as a warning and mean nothing. A quarter of the
+  band currently surfaces 2 units of 20.
+
+  Anything already breaching is excluded — that belongs in Needs Attention, and
+  a unit should never appear twice saying different things.
 - **Time In Range — last 7 days** — share of readings inside limits.
   **Seven days, not thirty, on purpose**: the metric scores history against
   *current* limits, so a longer window reports a threshold edit as though it were

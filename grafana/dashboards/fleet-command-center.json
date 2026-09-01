@@ -522,9 +522,9 @@
               {
                 "id": "custom.hideFrom",
                 "value": {
+                  "legend": true,
                   "tooltip": true,
-                  "viz": false,
-                  "legend": true
+                  "viz": false
                 }
               }
             ]
@@ -563,8 +563,8 @@
                 },
                 "opacity": 0.85,
                 "size": {
-                  "fixed": 15,
-                  "field": null
+                  "field": null,
+                  "fixed": 15
                 },
                 "symbol": {
                   "fixed": "img/icons/marker/circle.svg",
@@ -657,7 +657,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 34
       },
       "id": 9,
       "options": {
@@ -692,9 +692,11 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Each unit's current reading, the limit it is nearest, and how far it can still move. Top of the list is closest to alarming.",
+      "description": "Units still inside their limits but with less than a quarter of their safe range left. A proportion, not a fixed number of degrees, because a narrow band and a wide one are not equally forgiving. Anything already breaching is in Needs Attention.",
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "No units approaching their limits"
+        },
         "overrides": [
           {
             "matcher": {
@@ -778,7 +780,7 @@
         ]
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 0,
         "y": 27
@@ -788,8 +790,8 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "room_left",
-            "desc": false
+            "desc": false,
+            "displayName": "room_left"
           }
         ]
       },
@@ -802,11 +804,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT device, reading, nearest_limit, room_left FROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS device,\n    t.temperature_c*9.0/5.0+32 AS reading,\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS nearest_limit,\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS room_left\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x ORDER BY room_left ASC",
+          "rawSql": "SELECT device, reading, nearest_limit, room_left\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS device,\n    t.temperature_c*9.0/5.0+32 AS reading,\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS nearest_limit,\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS room_left,\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE room_left >= 0 AND room_left < 0.25 * band_width\nORDER BY room_left ASC",
           "refId": "A"
         }
       ],
-      "title": "Closest to Their Limits",
+      "title": "Watch List \u2014 approaching their limits",
       "type": "table"
     },
     {
@@ -893,7 +895,7 @@
         ]
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 12,
         "y": 27
@@ -1088,5 +1090,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 16
+  "version": 17
 }
