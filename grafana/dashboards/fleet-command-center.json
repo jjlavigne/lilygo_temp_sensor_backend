@@ -41,7 +41,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 180
+                "value": 155
               },
               {
                 "id": "mappings",
@@ -268,7 +268,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 180
+                "value": 155
               }
             ]
           },
@@ -502,6 +502,12 @@
           "color": {
             "mode": "thresholds"
           },
+          "links": [
+            {
+              "title": "View all units at this site",
+              "url": "/d/site-view/site-view?var-site=${__data.fields.location}&${company:queryparam}&${__url_time_range}"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -514,13 +520,7 @@
                 "value": 1
               }
             ]
-          },
-          "links": [
-            {
-              "title": "View all units at this site",
-              "url": "/d/site-view/site-view?var-site=${__data.fields.location}&${company:queryparam}&${__url_time_range}"
-            }
-          ]
+          }
         },
         "overrides": [
           {
@@ -728,7 +728,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(reading|nearest_limit)"
+              "options": "(Reading|Nearest Limit)"
             },
             "properties": [
               {
@@ -952,10 +952,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 6,
         "x": 18,
-        "y": 0
+        "y": 0,
+        "w": 6,
+        "h": 3
       },
       "id": 30,
       "options": {
@@ -968,7 +968,12 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "value",
+        "text": {
+          "valueSize": 32,
+          "titleSize": 13
+        },
+        "justifyMode": "center"
       },
       "targets": [
         {
@@ -985,6 +990,60 @@
       ],
       "title": "Units Monitored",
       "type": "stat"
+    },
+    {
+      "id": 31,
+      "title": "Companies",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 3
+      },
+      "description": "Tenants currently in view. Multi-tenancy is the point of the system.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(DISTINCT company) AS companies FROM devices\nWHERE is_active AND company IN (${company:sqlstring})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "text": {
+          "valueSize": 32,
+          "titleSize": 13
+        },
+        "justifyMode": "center",
+        "graphMode": "none",
+        "textMode": "value"
+      }
     }
   ],
   "refresh": "10s",
@@ -1063,5 +1122,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 22
+  "version": 23
 }

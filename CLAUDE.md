@@ -260,7 +260,7 @@ days-old number outranked units breaching live.
 ## Site View is the map's drill-through
 
 Clicking a map marker opens **Site View** (`/d/site-view`) for that location: two
-tiles (units here, how many need attention), a **Headroom** bar per unit, a table
+compact tiles (units here, how many need attention), the **Watch List**, a table
 sorted so anything wrong is at the top, and one temperature line per unit.
 
 **`$site` is keyed on site alone, not company + site.** The map groups by site for
@@ -272,8 +272,16 @@ The marker link passes `${company:queryparam}` so a fleet view filtered to one
 company stays filtered after the drill-through, instead of quietly widening back
 out to every tenant.
 
-**Headroom excludes silent units** for the same reason Needs Attention leaves their
-deviation blank: a stale reading says nothing about how much room a unit has now.
+**Site View's Watch List is the fleet dashboard's Watch List** — same title, same
+columns, same thresholds, same colouring, with only `d.site` added to the WHERE
+clause. It was briefly a bargauge called "Headroom", which was two names and two
+shapes for one idea; a person who learned the panel upstairs should not have to
+re-learn it after clicking through. If you change one, change both.
+
+**Stat panels need an explicit `options.text.valueSize`.** Grafana scales stat
+text to fill its panel, so a count of 21 in a tall tile renders as a billboard
+surrounded by dead space. Fixed type (~32-38px, title ~13px) reads as a header
+strip. Prefer two short tiles over one tall one for the same reason.
 
 The fleet-wide *Stayed In Range* stat tile was removed — it restated the
 per-device table directly below it, and one fleet-average number is the least
