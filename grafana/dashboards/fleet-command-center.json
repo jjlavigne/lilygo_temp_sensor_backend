@@ -173,10 +173,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 0,
+        "h": 6,
         "w": 24,
-        "h": 6
+        "x": 0,
+        "y": 0
       },
       "id": 20,
       "options": {
@@ -232,10 +232,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 6,
+        "h": 4,
         "w": 6,
-        "h": 4
+        "x": 0,
+        "y": 6
       },
       "id": 1,
       "options": {
@@ -295,10 +295,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 6,
-        "y": 6,
+        "h": 4,
         "w": 6,
-        "h": 4
+        "x": 6,
+        "y": 6
       },
       "id": 2,
       "options": {
@@ -358,10 +358,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 6,
+        "h": 4,
         "w": 6,
-        "h": 4
+        "x": 12,
+        "y": 6
       },
       "id": 3,
       "options": {
@@ -421,10 +421,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 18,
-        "y": 6,
+        "h": 4,
         "w": 6,
-        "h": 4
+        "x": 18,
+        "y": 6
       },
       "id": 4,
       "options": {
@@ -649,10 +649,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 10,
+        "h": 11,
         "w": 24,
-        "h": 11
+        "x": 0,
+        "y": 10
       },
       "id": 5,
       "options": {
@@ -685,16 +685,16 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Average across each company's units. Click a device anywhere on this dashboard for its individual chart with its limits drawn on.",
+      "description": "One line per device. Use the Company filter above to narrow to a readable set; click any device name elsewhere for its own chart with limit bands.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 6,
+            "fillOpacity": 0,
             "lineInterpolation": "smooth",
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 4,
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": true
           },
           "unit": "fahrenheit"
@@ -702,20 +702,21 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 21,
+        "h": 10,
         "w": 16,
-        "h": 10
+        "x": 0,
+        "y": 21
       },
       "id": 6,
       "options": {
         "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
           "calcs": [
             "lastNotNull"
           ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "width": 220
         },
         "tooltip": {
           "mode": "multi",
@@ -731,11 +732,11 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  d.company AS metric,\n  avg(t.temperature_c *9.0/5.0+32) AS temperature\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 1",
+          "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, t.device_id) AS metric,\n  avg(t.temperature_c*9.0/5.0+32) AS temperature\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Temperature by Company",
+      "title": "Temperature History",
       "type": "timeseries"
     },
     {
@@ -743,85 +744,102 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Opens on the Pacific Northwest, where all sites are. Scroll to zoom. Marker colour is temperature; click one to drill in.",
+      "description": "One marker per site, red when something there needs attention. Hover for the device count.",
       "fieldConfig": {
         "defaults": {
-          "decimals": 1,
-          "links": [
-            {
-              "title": "Open device detail",
-              "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
-            }
-          ],
-          "unit": "fahrenheit"
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "gridPos": {
-        "x": 16,
-        "y": 21,
+        "h": 10,
         "w": 8,
-        "h": 10
+        "x": 16,
+        "y": 21
       },
       "id": 7,
       "options": {
         "basemap": {
-          "name": "Basemap",
-          "type": "default"
+          "type": "osm-standard",
+          "name": "OpenStreetMap",
+          "config": {}
+        },
+        "view": {
+          "id": "coords",
+          "lat": 46.56,
+          "lon": -122.45,
+          "zoom": 6,
+          "allLayers": true
         },
         "controls": {
-          "mouseWheelZoom": true,
+          "showZoom": true,
           "showAttribution": true,
+          "mouseWheelZoom": true,
           "showScale": false,
-          "showZoom": true
+          "showMeasure": false,
+          "showDebug": false
+        },
+        "tooltip": {
+          "mode": "details"
         },
         "layers": [
           {
+            "type": "markers",
+            "name": "Sites",
+            "tooltip": true,
+            "location": {
+              "mode": "coords",
+              "latitude": "latitude",
+              "longitude": "longitude"
+            },
             "config": {
               "showLegend": false,
               "style": {
-                "color": {
-                  "field": "temperature",
-                  "fixed": "dark-blue"
-                },
-                "opacity": 0.9,
                 "size": {
-                  "field": null,
-                  "fixed": 10
+                  "field": "devices",
+                  "fixed": 6,
+                  "min": 9,
+                  "max": 22
                 },
+                "color": {
+                  "field": "needs_attention",
+                  "fixed": "green"
+                },
+                "opacity": 0.85,
                 "symbol": {
-                  "fixed": "img/icons/marker/circle.svg",
-                  "mode": "fixed"
+                  "mode": "fixed",
+                  "fixed": "img/icons/marker/circle.svg"
+                },
+                "text": {
+                  "field": "site",
+                  "fixed": ""
                 },
                 "textConfig": {
-                  "fontSize": 12,
+                  "fontSize": 11,
                   "offsetX": 0,
-                  "offsetY": -14,
+                  "offsetY": -16,
                   "textAlign": "center",
                   "textBaseline": "middle"
                 }
               }
-            },
-            "location": {
-              "latitude": "latitude",
-              "longitude": "longitude",
-              "mode": "coords"
-            },
-            "name": "Sensors",
-            "tooltip": true,
-            "type": "markers"
+            }
           }
-        ],
-        "tooltip": {
-          "mode": "details"
-        },
-        "view": {
-          "allLayers": true,
-          "id": "coords",
-          "lat": 46.56,
-          "lon": -122.45,
-          "zoom": 7
-        }
+        ]
       },
       "targets": [
         {
@@ -832,11 +850,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (t.device_id)\n  COALESCE(d.display_name, t.device_id) AS device, t.latitude, t.longitude,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '30 minutes'\n  AND t.latitude IS NOT NULL AND d.company IN (${company:sqlstring})\nORDER BY t.device_id, t.recorded_at DESC",
+          "rawSql": "SELECT\n  d.company || ' / ' || d.site AS site,\n  avg(t.latitude)  AS latitude,\n  avg(t.longitude) AS longitude,\n  count(*)         AS devices,\n  count(*) FILTER (\n    WHERE t.recorded_at IS NULL\n       OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c\n       OR t.temperature_c < d.temp_min_c\n  ) AS needs_attention\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, recorded_at, latitude, longitude FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.company IN (${company:sqlstring}) AND t.latitude IS NOT NULL\nGROUP BY 1",
           "refId": "A"
         }
       ],
-      "title": "Fleet Map",
+      "title": "Sites",
       "type": "geomap"
     },
     {
@@ -852,10 +870,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 40,
+        "h": 8,
         "w": 12,
-        "h": 8
+        "x": 0,
+        "y": 40
       },
       "id": 8,
       "options": {
@@ -911,10 +929,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 40,
+        "h": 8,
         "w": 12,
-        "h": 8
+        "x": 12,
+        "y": 40
       },
       "id": 9,
       "options": {
@@ -982,10 +1000,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 31,
+        "h": 9,
         "w": 12,
-        "h": 9
+        "x": 0,
+        "y": 31
       },
       "id": 21,
       "options": {
@@ -1102,10 +1120,10 @@
         ]
       },
       "gridPos": {
-        "x": 12,
-        "y": 31,
+        "h": 9,
         "w": 12,
-        "h": 9
+        "x": 12,
+        "y": 31
       },
       "id": 22,
       "options": {
@@ -1175,5 +1193,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 13
+  "version": 14
 }
