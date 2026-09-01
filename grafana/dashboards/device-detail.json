@@ -44,7 +44,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "auto",
+        "text": {
+          "valueSize": 28,
+          "titleSize": 13
+        }
       },
       "targets": [
         {
@@ -74,29 +78,29 @@
           },
           "mappings": [
             {
+              "type": "value",
               "options": {
-                "HIGH": {
+                "OK": {
+                  "color": "green",
+                  "index": 0
+                },
+                "ABOVE THRESHOLD": {
                   "color": "red",
                   "index": 1
                 },
-                "LOW": {
+                "BELOW THRESHOLD": {
                   "color": "blue",
                   "index": 2
-                },
-                "NEVER SEEN": {
-                  "color": "purple",
-                  "index": 4
                 },
                 "OFFLINE": {
                   "color": "orange",
                   "index": 3
                 },
-                "OK": {
-                  "color": "green",
-                  "index": 0
+                "NEVER REPORTED": {
+                  "color": "purple",
+                  "index": 4
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "thresholds": {
@@ -128,7 +132,11 @@
           "fields": "/.*/",
           "values": false
         },
-        "textMode": "value"
+        "textMode": "value",
+        "text": {
+          "valueSize": 22,
+          "titleSize": 13
+        }
       },
       "targets": [
         {
@@ -139,11 +147,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK' END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
+          "rawSql": "SELECT CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring}",
           "refId": "A"
         }
       ],
-      "title": "Status",
+      "title": "Condition",
       "type": "stat"
     },
     {
@@ -196,7 +204,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "auto",
+        "text": {
+          "valueSize": 28,
+          "titleSize": 13
+        }
       },
       "targets": [
         {
@@ -268,7 +280,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value"
+        "textMode": "value",
+        "text": {
+          "valueSize": 28,
+          "titleSize": 13
+        }
       },
       "targets": [
         {
@@ -524,33 +540,11 @@
       "type": "table"
     },
     {
-      "id": 40,
-      "title": "Excursions \u2014 last $window",
-      "type": "table",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "gridPos": {
-        "x": 0,
-        "y": 30,
-        "w": 24,
-        "h": 9
-      },
       "description": "Every run of consecutive out-of-range readings, collapsed into one entry: when it began, how long it lasted, and the furthest it went past the limit. Computed from the readings themselves, so it covers all history, not only what was recorded going forward.",
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "WITH flagged AS (\n  SELECT t.recorded_at, t.temperature_c, d.temp_min_c, d.temp_max_c,\n         d.expected_interval_s,\n         (t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS bad\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id\n  WHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring} AND t.recorded_at > now() - interval '$window'\n),\nedges AS (\n  SELECT *, LAG(bad) OVER (ORDER BY recorded_at) AS prev_bad FROM flagged\n),\nruns AS (\n  SELECT *, SUM(CASE WHEN bad IS DISTINCT FROM prev_bad THEN 1 ELSE 0 END)\n              OVER (ORDER BY recorded_at) AS run_id\n  FROM edges\n)\nSELECT\n  min(recorded_at) AS started,\n  EXTRACT(EPOCH FROM (max(recorded_at) - min(recorded_at))) + max(expected_interval_s) AS duration,\n  CASE WHEN max(temperature_c) > max(temp_max_c) THEN 'TOO WARM' ELSE 'TOO COLD' END AS kind,\n  max(GREATEST(temperature_c - temp_max_c, temp_min_c - temperature_c)) * 9.0/5.0 AS worst_by,\n  count(*) AS readings\nFROM runs\nWHERE bad\nGROUP BY run_id\nORDER BY started DESC",
-          "editorMode": "code"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "noValue": "No excursions in this period"
@@ -634,17 +628,17 @@
                 "id": "mappings",
                 "value": [
                   {
-                    "type": "value",
                     "options": {
-                      "TOO WARM": {
-                        "color": "red",
-                        "index": 0
-                      },
                       "TOO COLD": {
                         "color": "blue",
                         "index": 1
+                      },
+                      "TOO WARM": {
+                        "color": "red",
+                        "index": 0
                       }
-                    }
+                    },
+                    "type": "value"
                   }
                 ]
               }
@@ -672,15 +666,37 @@
           }
         ]
       },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "id": 40,
       "options": {
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "started",
-            "desc": true
+            "desc": true,
+            "displayName": "started"
           }
         ]
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH flagged AS (\n  SELECT t.recorded_at, t.temperature_c, d.temp_min_c, d.temp_max_c,\n         d.expected_interval_s,\n         (t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS bad\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id\n  WHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring} AND t.recorded_at > now() - interval '$window'\n),\nedges AS (\n  SELECT *, LAG(bad) OVER (ORDER BY recorded_at) AS prev_bad FROM flagged\n),\nruns AS (\n  SELECT *, SUM(CASE WHEN bad IS DISTINCT FROM prev_bad THEN 1 ELSE 0 END)\n              OVER (ORDER BY recorded_at) AS run_id\n  FROM edges\n)\nSELECT\n  min(recorded_at) AS started,\n  EXTRACT(EPOCH FROM (max(recorded_at) - min(recorded_at))) + max(expected_interval_s) AS duration,\n  CASE WHEN max(temperature_c) > max(temp_max_c) THEN 'TOO WARM' ELSE 'TOO COLD' END AS kind,\n  max(GREATEST(temperature_c - temp_max_c, temp_min_c - temperature_c)) * 9.0/5.0 AS worst_by,\n  count(*) AS readings\nFROM runs\nWHERE bad\nGROUP BY run_id\nORDER BY started DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Excursions \u2014 last $window",
+      "type": "table"
     }
   ],
   "refresh": "10s",
@@ -708,39 +724,39 @@
         "type": "query"
       },
       {
-        "name": "window",
+        "current": {
+          "selected": true,
+          "text": "30 days",
+          "value": "30 days"
+        },
+        "includeAll": false,
         "label": "History window",
-        "type": "custom",
-        "query": "24 hours,7 days,30 days,90 days",
+        "multi": false,
+        "name": "window",
         "options": [
           {
+            "selected": false,
             "text": "24 hours",
-            "value": "24 hours",
-            "selected": false
+            "value": "24 hours"
           },
           {
+            "selected": false,
             "text": "7 days",
-            "value": "7 days",
-            "selected": false
+            "value": "7 days"
           },
           {
+            "selected": true,
             "text": "30 days",
-            "value": "30 days",
-            "selected": true
+            "value": "30 days"
           },
           {
+            "selected": false,
             "text": "90 days",
-            "value": "90 days",
-            "selected": false
+            "value": "90 days"
           }
         ],
-        "current": {
-          "text": "30 days",
-          "value": "30 days",
-          "selected": true
-        },
-        "multi": false,
-        "includeAll": false
+        "query": "24 hours,7 days,30 days,90 days",
+        "type": "custom"
       }
     ]
   },
@@ -751,5 +767,5 @@
   "timezone": "browser",
   "title": "Device Detail",
   "uid": "device-detail",
-  "version": 4
+  "version": 5
 }

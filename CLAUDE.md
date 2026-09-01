@@ -282,14 +282,17 @@ re-learn it after clicking through. If you change one, change both.
 read at a glance; "Units At This Site" ellipsized to "Units At Thi..." and needed
 a hover, which defeats the point. `Units` and `Needs Attention` fit.
 
-**Linking to a panel: `viewPanel=panel-<id>`, not `viewPanel=<id>`.** Grafana 13
-runs the scenes dashboard (`dashboardScene` toggle is on), where the URL value
-comes from `VizPanel.getPathId()`. Confirmed in
-`public/app/features/dashboard-scene/utils/pathId.test.ts` inside the container —
-a bare number still resolves through a legacy branch, but the prefixed form is
-canonical. Site View's **Needs Attention** count links this way to **All Units**
-(panel 4), which is already ordered breaches → offline → healthy, so the units
-the number refers to are the ones on top.
+**Grafana cannot scroll to a panel from a URL.** Worth knowing before promising
+it: panels render with a `data-viz-panel-key` attribute, not an `id`, so a `#`
+fragment has nothing to land on, and `viewPanel` — the only parameter that targets
+a panel — *maximizes* it, which locks the reader into that one panel rather than
+taking them to it. (If you ever do need the maximizing behaviour, the scenes form
+is `viewPanel=panel-<id>`; a bare id resolves through a legacy branch. See
+`public/app/features/dashboard-scene/utils/pathId.test.ts` in the container.)
+
+The fix for "take me to the problem units" is layout, not linking: Site View's
+**All Units** sits directly beneath the tiles and is ordered breaches → offline →
+healthy, so the units the count refers to are already on screen.
 
 **Stat panels need an explicit `options.text.valueSize`.** Grafana scales stat
 text to fill its panel, so a count of 21 in a tall tile renders as a billboard
