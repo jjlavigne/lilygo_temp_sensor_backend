@@ -3,10 +3,10 @@
 {% block body %}
 
 <h1>Devices</h1>
-<p class="sub">
-  {% if scope %}Showing {{ scope }} only.{% else %}Showing every company.{% endif %}
-  Temperatures are shown and entered in &deg;F; they are stored in &deg;C.
-</p>
+{# The unit note lives on the add/edit form, where it is actionable. Repeating
+   it here only added a line to read past. The scope line is kept ONLY when a
+   user is restricted to one company -- otherwise it states the obvious. #}
+{% if scope %}<p class="sub">Showing {{ scope }} only.</p>{% endif %}
 
 {% if discovered_count %}
 <div class="flash flash-ok" style="display:flex;align-items:center;gap:14px">
