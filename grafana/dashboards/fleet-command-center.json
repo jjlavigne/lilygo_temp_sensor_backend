@@ -496,7 +496,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "One marker per location. Red when anything there needs attention.",
+      "description": "One marker per site, coloured by whether anything there needs attention. Click a marker to open that site and see every unit on it.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -514,7 +514,13 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "View all units at this site",
+              "url": "/d/site-view/site-view?var-site=${__data.fields.location}&${company:queryparam}&${__url_time_range}"
+            }
+          ]
         },
         "overrides": [
           {
@@ -946,7 +952,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
+        "h": 6,
         "w": 6,
         "x": 18,
         "y": 0
@@ -978,78 +984,6 @@
         }
       ],
       "title": "Units Monitored",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "cfmk49pm86epsf"
-      },
-      "description": "Share of all readings taken in the selected compliance window that were inside limits. This is a HISTORICAL figure over the whole window, not the state right now \u2014 see Needs Attention for that. It reads 100% only if nothing went out of range at all.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 2,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 90
-              },
-              {
-                "color": "yellow",
-                "value": 98
-              },
-              {
-                "color": "green",
-                "value": 99.5
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 18,
-        "y": 3
-      },
-      "id": 31,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT CASE WHEN count(*) FILTER (WHERE t.temperature_c NOT BETWEEN d.temp_min_c AND d.temp_max_c) = 0 THEN 100.0\n            ELSE LEAST(100.0 * count(*) FILTER (WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*), 99.99) END AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})",
-          "refId": "A"
-        }
-      ],
-      "title": "Fleet Stayed In Range \u2014 last $window",
       "type": "stat"
     }
   ],
@@ -1129,5 +1063,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 21
+  "version": 22
 }

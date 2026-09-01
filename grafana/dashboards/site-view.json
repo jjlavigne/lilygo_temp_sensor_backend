@@ -1,560 +1,512 @@
 {
-  "description": "One collapsible section per company and site. Auburn WA hosts both Plymouth and S&J, so sections are keyed on company AND site -- a site manager never sees another company's equipment.",
+  "description": "Every unit at one site, problems first.",
   "editable": true,
   "id": 2771583503675392,
   "links": [
     {
-      "asDropdown": false,
-      "icon": "cog",
-      "includeVars": false,
-      "keepTime": false,
+      "type": "dashboards",
+      "title": "Fleet Command Center",
       "tags": [],
-      "targetBlank": true,
-      "title": "Manage Devices",
-      "tooltip": "Add devices, change temperature limits, rename units",
+      "asDropdown": false,
+      "icon": "arrow-left",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false,
+      "tooltip": "Back to the whole fleet",
+      "url": ""
+    },
+    {
       "type": "link",
-      "url": "http://10.80.149.11:8080"
+      "title": "Manage Devices",
+      "icon": "cog",
+      "url": "http://localhost:8080",
+      "targetBlank": true,
+      "tooltip": "Add devices or change limits"
     }
   ],
   "panels": [
     {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
+      "id": 1,
+      "title": "Units At This Site",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
       },
-      "id": 100,
-      "panels": [
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
         {
+          "refId": "A",
           "datasource": {
             "type": "grafana-postgresql-datasource",
             "uid": "cfmk49pm86epsf"
           },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "text",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 1
-          },
-          "id": 101,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT count(*) AS units FROM devices d WHERE d.is_active AND d.company || ' / ' || d.site = ${location:sqlstring}",
-              "refId": "A"
-            }
-          ],
-          "title": "Units at Site",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 4,
-            "y": 1
-          },
-          "id": 102,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT count(*) AS n FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company || ' / ' || d.site = ${location:sqlstring} AND t.recorded_at IS NOT NULL AND NOT (t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval)\n  AND (t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c)",
-              "refId": "A"
-            }
-          ],
-          "title": "Out of Range",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "orange",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 8,
-            "y": 1
-          },
-          "id": 103,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT count(*) AS n FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company || ' / ' || d.site = ${location:sqlstring} AND (t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval)",
-              "refId": "A"
-            }
-          ],
-          "title": "Offline",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 20
-                  },
-                  {
-                    "color": "green",
-                    "value": 50
-                  }
-                ]
-              },
-              "unit": "percent"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 4,
-            "x": 12,
-            "y": 1
-          },
-          "id": 104,
-          "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT min(t.battery_pct) AS n FROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true WHERE d.company || ' / ' || d.site = ${location:sqlstring}",
-              "refId": "A"
-            }
-          ],
-          "title": "Lowest Battery",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "description": "Degrees Fahrenheit. Set per company by cargo type.",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "text",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 8,
-            "x": 16,
-            "y": 1
-          },
-          "id": 105,
-          "options": {
-            "colorMode": "none",
-            "graphMode": "none",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "/.*/",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT DISTINCT round((d.temp_min_c * 9.0/5.0 + 32)::numeric,1) || ' - ' ||\n       round((d.temp_max_c * 9.0/5.0 + 32)::numeric,1) AS band\nFROM devices d WHERE d.is_active AND d.company || ' / ' || d.site = ${location:sqlstring}",
-              "refId": "A"
-            }
-          ],
-          "title": "Safe Range",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "description": "Click a device name to open its full history.",
-          "fieldConfig": {
-            "defaults": {},
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "status"
-                },
-                "properties": [
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "color-background"
-                    }
-                  },
-                  {
-                    "id": "mappings",
-                    "value": [
-                      {
-                        "options": {
-                          "HIGH": {
-                            "color": "red",
-                            "index": 1
-                          },
-                          "LOW": {
-                            "color": "blue",
-                            "index": 2
-                          },
-                          "NEVER SEEN": {
-                            "color": "purple",
-                            "index": 4
-                          },
-                          "OFFLINE": {
-                            "color": "orange",
-                            "index": 3
-                          },
-                          "OK": {
-                            "color": "green",
-                            "index": 0
-                          }
-                        },
-                        "type": "value"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "device"
-                },
-                "properties": [
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "title": "Open device detail",
-                        "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "temperature"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "fahrenheit"
-                  },
-                  {
-                    "id": "decimals",
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "battery_pct"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "percent"
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "mode": "gradient",
-                      "type": "gauge"
-                    }
-                  },
-                  {
-                    "id": "min",
-                    "value": 0
-                  },
-                  {
-                    "id": "max",
-                    "value": 100
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "last_seen"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "dateTimeFromNow"
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 5
-          },
-          "id": 106,
-          "options": {
-            "showHeader": true,
-            "sortBy": [
-              {
-                "desc": false,
-                "displayName": "status"
-              }
-            ]
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "table",
-              "rawQuery": true,
-              "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS device,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company || ' / ' || d.site = ${location:sqlstring}\nORDER BY COALESCE(d.display_name, d.device_id)",
-              "refId": "A"
-            }
-          ],
-          "title": "Devices",
-          "type": "table"
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "lineInterpolation": "smooth",
-                "lineWidth": 1,
-                "pointSize": 4,
-                "showPoints": "auto",
-                "spanNulls": true
-              },
-              "unit": "fahrenheit"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 9,
-            "w": 24,
-            "x": 0,
-            "y": 13
-          },
-          "id": 107,
-          "options": {
-            "legend": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "cfmk49pm86epsf"
-              },
-              "editorMode": "code",
-              "format": "time_series",
-              "rawQuery": true,
-              "rawSql": "SELECT\n  $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, t.device_id) AS metric,\n  avg(t.temperature_c * 9.0/5.0 + 32) AS temperature\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.company || ' / ' || d.site = ${location:sqlstring}\nGROUP BY 1, 2 ORDER BY 1",
-              "refId": "A"
-            }
-          ],
-          "title": "Temperature",
-          "type": "timeseries"
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS units FROM devices d WHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})",
+          "editorMode": "code"
         }
       ],
-      "repeat": "location",
-      "repeatDirection": "v",
-      "title": "$location",
-      "type": "row"
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Need Attention",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) FILTER (WHERE t.recorded_at IS NULL\n      OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n      OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS needs_attention\nFROM devices d LEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true WHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "All OK",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Headroom \u2014 room left before each unit breaches",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 14,
+        "h": 9
+      },
+      "description": "Degrees between each unit's reading and the nearer of its two limits. Silent units are left out -- a stale reading says nothing about how much room a unit has now.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(d.display_name, d.device_id) AS device,\n  LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS headroom\nFROM devices d LEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring}) AND t.recorded_at > now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\nORDER BY 2 ASC",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "minVizWidth": 8,
+        "maxVizHeight": 20,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Every Unit Here",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 10
+      },
+      "description": "Sorted so anything wrong is at the top. Click a device for its history.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  d.company AS \"Company\",\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END AS \"Condition\",\n  t.temperature_c*9.0/5.0+32 AS \"Reading\",\n  d.temp_min_c*9.0/5.0+32 AS \"Min OK\",\n  d.temp_max_c*9.0/5.0+32 AS \"Max OK\",\n  CASE WHEN t.recorded_at > now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       THEN LEAST(d.temp_max_c - t.temperature_c,\n                  t.temperature_c - d.temp_min_c)*9.0/5.0 END AS \"Room Left\",\n  t.battery_pct AS \"Battery\",\n  t.recorded_at AS \"Last Seen\"\nFROM devices d LEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nORDER BY CASE CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END\n           WHEN 'ABOVE THRESHOLD' THEN 1 WHEN 'BELOW THRESHOLD' THEN 2\n           WHEN 'OFFLINE' THEN 3 WHEN 'NEVER REPORTED' THEN 4 ELSE 5 END,\n         \"Room Left\" ASC NULLS FIRST",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No units registered at this site"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open device detail",
+                    "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Condition"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "OK": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "ABOVE THRESHOLD": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "BELOW THRESHOLD": {
+                        "color": "blue",
+                        "index": 2
+                      },
+                      "OFFLINE": {
+                        "color": "orange",
+                        "index": 3
+                      },
+                      "NEVER REPORTED": {
+                        "color": "purple",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(Reading|Min OK|Max OK|Room Left)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Room Left"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "\u2014"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "green",
+                      "value": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Battery"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 20
+                    },
+                    {
+                      "color": "green",
+                      "value": 40
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last Seen"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeFromNow"
+              },
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 5,
+      "title": "Temperature \u2014 units at this site",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 10
+      },
+      "description": "One line per unit. A site holds a handful of units, so individual lines stay readable here where they would not at fleet scale -- and an average would hide a single unit failing.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, d.device_id) AS metric,\n  avg(t.temperature_c*9.0/5.0+32) AS temperature\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nGROUP BY 1,2 ORDER BY 1",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "fahrenheit",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 4,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     }
   ],
   "refresh": "30s",
@@ -566,28 +518,35 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": true,
-          "text": [
-            "All"
-          ],
-          "value": [
-            "$__all"
-          ]
-        },
+        "name": "site",
+        "label": "Site",
+        "type": "query",
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "cfmk49pm86epsf"
         },
-        "includeAll": true,
-        "label": "Site",
-        "multi": true,
-        "name": "location",
-        "options": [],
-        "query": "SELECT DISTINCT company || ' / ' || site FROM devices ORDER BY 1;",
+        "query": "SELECT DISTINCT site FROM devices WHERE is_active ORDER BY 1;",
         "refresh": 1,
-        "sort": 1,
-        "type": "query"
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "company",
+        "label": "Company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "cfmk49pm86epsf"
+        },
+        "query": "SELECT DISTINCT company FROM devices WHERE is_active ORDER BY 1;",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -598,5 +557,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 3
+  "version": 4
 }

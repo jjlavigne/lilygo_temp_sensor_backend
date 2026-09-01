@@ -257,6 +257,28 @@ computing one from the last reading: that gap is however far out it was when las
 heard from, not how far out it is now, and because the panel sorts on deviation a
 days-old number outranked units breaching live.
 
+## Site View is the map's drill-through
+
+Clicking a map marker opens **Site View** (`/d/site-view`) for that location: two
+tiles (units here, how many need attention), a **Headroom** bar per unit, a table
+sorted so anything wrong is at the top, and one temperature line per unit.
+
+**`$site` is keyed on site alone, not company + site.** The map groups by site for
+a reason — Plymouth and S&J are both in Auburn, 20 m apart, so they land on the
+same pixel — and a company-qualified key would never match a marker. Auburn's Site
+View therefore shows both tenants' units, which is correct for a location view.
+
+The marker link passes `${company:queryparam}` so a fleet view filtered to one
+company stays filtered after the drill-through, instead of quietly widening back
+out to every tenant.
+
+**Headroom excludes silent units** for the same reason Needs Attention leaves their
+deviation blank: a stale reading says nothing about how much room a unit has now.
+
+The fleet-wide *Stayed In Range* stat tile was removed — it restated the
+per-device table directly below it, and one fleet-average number is the least
+actionable form of that data.
+
 ## Excursions are computed, not stored
 
 There is no `incidents` table. The **Excursions** panel on Device Detail finds
