@@ -2,6 +2,15 @@
 
 Guidance for Claude Code when working in this repository.
 
+## Where things are written down
+
+- **`docs/competitor-analysis.md`** — what SmartSense actually does at Plymouth,
+  observed from the live account. Their configuration gaps, their reporting
+  features, and where we are genuinely ahead or behind.
+- **`docs/roadmap.md`** — candidate changes, ranked, marked parity vs advantage.
+- **`presentation/`** — the pitch deck and its generator.
+- **`grafana/queries.md`** — every dashboard and alert query.
+
 ## Status: prototype
 
 This is a **prototype**, and the `telemetry` table holds a mix of two data sources —
