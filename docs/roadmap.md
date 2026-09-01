@@ -1,5 +1,10 @@
 # Roadmap
 
+> **Done (1 Sept 2026).** Needs Attention, Margin to Nearest Limit, Time In Range,
+> and a readable fleet temperature chart. Revert point: `git tag pre-ui-overhaul`.
+> Items 1 (full incident tracking) and 4–8 below remain open.
+
+
 Candidate changes, ranked. Effort estimates assume the existing stack; nothing
 here requires new infrastructure.
 

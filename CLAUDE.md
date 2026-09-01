@@ -193,6 +193,32 @@ Always do the arithmetic in the query, then set the unit to match.
 Alert *conditions* stay unit-agnostic (`excursion > 0` is true in either scale), so
 thresholds never need touching when display units change.
 
+## Dashboard: status first, history second
+
+The fleet dashboard opens with **Needs Attention** — only units currently out of
+range, offline, or never heard from. Empty means healthy, and it says so. Nothing
+stays there after recovering.
+
+That is deliberate contrast with SmartSense, whose front page lists incidents that
+persist until manually acknowledged; theirs currently shows 15, most long since
+resolved (`docs/competitor-analysis.md`). A monitoring screen should answer *what
+is wrong now*, not *what has ever been wrong*.
+
+Supporting panels answer questions their interface cannot:
+
+- **Margin to Nearest Limit** — degrees of headroom per unit, so "nearly in
+  trouble" is visible before it becomes an alert. Uses
+  `LEAST(max - reading, reading - min)`, which works despite each company having
+  different limits.
+- **Time In Range — last 7 days** — share of readings inside limits.
+  **Seven days, not thirty, on purpose**: the metric scores history against
+  *current* limits, so a longer window reports a threshold edit as though it were
+  an equipment failure. Changing Plymouth from produce to poultry limits dropped
+  its 30-day figure to 70% overnight while nothing physical changed.
+- **Temperature by Company** — one line per company. Per-device was 20
+  overlapping series and unreadable; individual charts with limit bands live on
+  the device detail page.
+
 ## Dashboard: Fleet Status never hides a device
 
 The status table shows **every registered device, always**, with its most recent
