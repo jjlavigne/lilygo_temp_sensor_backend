@@ -278,6 +278,19 @@ clause. It was briefly a bargauge called "Headroom", which was two names and two
 shapes for one idea; a person who learned the panel upstairs should not have to
 re-learn it after clicking through. If you change one, change both.
 
+**Keep stat titles short enough to render in full.** A stat tile is meant to be
+read at a glance; "Units At This Site" ellipsized to "Units At Thi..." and needed
+a hover, which defeats the point. `Units` and `Needs Attention` fit.
+
+**Linking to a panel: `viewPanel=panel-<id>`, not `viewPanel=<id>`.** Grafana 13
+runs the scenes dashboard (`dashboardScene` toggle is on), where the URL value
+comes from `VizPanel.getPathId()`. Confirmed in
+`public/app/features/dashboard-scene/utils/pathId.test.ts` inside the container —
+a bare number still resolves through a legacy branch, but the prefixed form is
+canonical. Site View's **Needs Attention** count links this way to **All Units**
+(panel 4), which is already ordered breaches → offline → healthy, so the units
+the number refers to are the ones on top.
+
 **Stat panels need an explicit `options.text.valueSize`.** Grafana scales stat
 text to fill its panel, so a count of 21 in a tall tile renders as a billboard
 surrounded by dead space. Fixed type (~32-38px, title ~13px) reads as a header

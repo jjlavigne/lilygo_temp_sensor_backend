@@ -48,6 +48,7 @@
       "id": 1,
       "options": {
         "graphMode": "none",
+        "justifyMode": "center",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -55,12 +56,11 @@
           "fields": "/.*/",
           "values": false
         },
-        "textMode": "value",
         "text": {
-          "valueSize": 38,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 38
         },
-        "justifyMode": "center"
+        "textMode": "value"
       },
       "targets": [
         {
@@ -75,8 +75,9 @@
           "refId": "A"
         }
       ],
-      "title": "Units At This Site",
-      "type": "stat"
+      "title": "Units",
+      "type": "stat",
+      "description": "Active units registered at this site."
     },
     {
       "datasource": {
@@ -112,19 +113,26 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "Show me which units",
+              "url": "/d/site-view/site-view?${site:queryparam}&${company:queryparam}&viewPanel=panel-4"
+            }
+          ]
         },
         "overrides": []
       },
       "gridPos": {
         "x": 4,
         "y": 0,
-        "w": 4,
+        "w": 6,
         "h": 5
       },
       "id": 2,
       "options": {
         "graphMode": "none",
+        "justifyMode": "center",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -132,12 +140,11 @@
           "fields": "/.*/",
           "values": false
         },
-        "textMode": "value",
         "text": {
-          "valueSize": 38,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 38
         },
-        "justifyMode": "center"
+        "textMode": "value"
       },
       "targets": [
         {
@@ -152,37 +159,16 @@
           "refId": "A"
         }
       ],
-      "title": "Need Attention",
-      "type": "stat"
+      "title": "Needs Attention",
+      "type": "stat",
+      "description": "Click this number to open the full unit list, problems first."
     },
     {
-      "id": 3,
-      "title": "Watch List \u2014 approaching their limits",
-      "type": "table",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 16,
-        "h": 5
-      },
       "description": "Units still inside their limits but with less than a quarter of their safe range left. A proportion, not a fixed number of degrees, because a narrow band and a wide one are not equally forgiving. Anything already breaching is in Needs Attention.",
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Room Left\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Room Left\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND d.company IN (${company:sqlstring}) AND d.site IN (${site:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Room Left\" >= 0 AND \"Room Left\" < 0.25 * band_width\nORDER BY \"Room Left\" ASC",
-          "editorMode": "code"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "noValue": "Nothing approaching a limit here"
@@ -269,6 +255,13 @@
           }
         ]
       },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 14,
+        "h": 5
+      },
+      "id": 3,
       "options": {
         "showHeader": true,
         "sortBy": [
@@ -277,7 +270,22 @@
             "displayName": "Room Left"
           }
         ]
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Room Left\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Room Left\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND d.company IN (${company:sqlstring}) AND d.site IN (${site:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Room Left\" >= 0 AND \"Room Left\" < 0.25 * band_width\nORDER BY \"Room Left\" ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Watch List \u2014 approaching their limits",
+      "type": "table"
     },
     {
       "datasource": {
@@ -486,10 +494,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 5,
+        "h": 10,
         "w": 24,
-        "h": 10
+        "x": 0,
+        "y": 5
       },
       "id": 4,
       "options": {
@@ -530,10 +538,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 15,
+        "h": 9,
         "w": 24,
-        "h": 9
+        "x": 0,
+        "y": 15
       },
       "id": 5,
       "options": {
@@ -617,5 +625,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 5
+  "version": 6
 }
