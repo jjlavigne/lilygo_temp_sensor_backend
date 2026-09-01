@@ -272,6 +272,26 @@ The marker link passes `${company:queryparam}` so a fleet view filtered to one
 company stays filtered after the drill-through, instead of quietly widening back
 out to every tenant.
 
+**Never plot raw temperature for units from different companies on one axis.**
+Site View did, and it read as a fault: Nikky USA's frozen band (-9.4 to -0.4 F)
+sits about 40 F below Aloha's chilled band (33.8 to 41 F), so both Nikky units
+looked far too cold when only one actually was, and the chart disagreed with the
+Needs Attention count sitting directly above it. Position on a shared axis says
+nothing about being in range when every tenant has different limits.
+
+The chart now plots **degrees from each unit's own nearest limit** — zero is the
+limit, above is in range, below is a breach and the depth is how far out. That is
+correct per *device*, which matters because limits can be overridden per device
+(`Auburn Freezer 2` has a 30 F floor where its Aloha siblings have 33.8 F), so
+drawing one band per company would have been subtly wrong. It is also the same
+quantity as the *Degrees From Limit* column, so chart, table and count agree.
+
+It is a **difference**, so `* 9.0/5.0` with no `+32`.
+
+**The fleet dashboard's Temperature History has the same flaw** — 21 units across
+four bands on one axis. Left as raw temperature deliberately, since at fleet level
+people want to see actual degrees, but it cannot be read for compliance.
+
 **Site View's Watch List is the fleet dashboard's Watch List** — same title, same
 columns, same thresholds, same colouring, with only `d.site` added to the WHERE
 clause. It was briefly a bargauge called "Headroom", which was two names and two

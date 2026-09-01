@@ -518,16 +518,32 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "One line per unit. A site holds a handful of units, so individual lines stay readable here where they would not at fleet scale -- and an average would hide a single unit failing.",
+      "description": "Each unit's distance from its OWN nearest limit, so units with different safe bands are comparable on one axis. Zero is the limit: above the red line is in range, below it is a breach, and the depth is how far out. Plotting raw temperature here was misleading \u2014 a frozen-goods unit at -5 F sat far below a chilled-produce unit at 38 F and looked like a failure when both were fine. Actual temperatures are in the table above, and each unit's own chart with its band drawn is on Device Detail.",
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "fillOpacity": 4,
             "lineWidth": 2,
-            "showPoints": "never"
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
           "decimals": 1,
-          "unit": "fahrenheit"
+          "unit": "fahrenheit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -540,13 +556,12 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull",
-            "min",
-            "max"
-          ],
           "displayMode": "table",
           "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "min"
+          ],
           "showLegend": true
         },
         "tooltip": {
@@ -563,11 +578,11 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, d.device_id) AS metric,\n  avg(t.temperature_c*9.0/5.0+32) AS temperature\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at) AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nGROUP BY 1,2 ORDER BY 1",
+          "rawSql": "SELECT $__timeGroupAlias(t.recorded_at, $__interval),\n  COALESCE(d.display_name, d.device_id) AS metric,\n  avg(LEAST(d.temp_max_c - t.temperature_c,\n            t.temperature_c - d.temp_min_c)) * 9.0/5.0 AS degrees_from_limit\nFROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at)\n  AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nGROUP BY 1,2 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Temperature",
+      "title": "Degrees From Limit \u2014 every unit on one scale",
       "type": "timeseries"
     }
   ],
@@ -619,5 +634,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 9
+  "version": 10
 }
