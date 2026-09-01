@@ -394,6 +394,29 @@ recorded_at DESC` — each device's most recent reading — instead of a fixed w
 query like `WHERE recorded_at > now() - interval '90 seconds'` looks correct and
 silently excludes the entire simulated fleet.
 
+## Filling the dashboard on demand: `SCENARIO=showcase`
+
+```bash
+SCENARIO=showcase docker compose --profile sim up -d --force-recreate fleet-simulator
+SCENARIO=demo     docker compose --profile sim up -d --force-recreate fleet-simulator   # back to normal
+```
+
+`showcase` exists to check panels, not to tell a story: it puts two units out of
+range (one warm, one cold, at companies with different bands), one silent, and two
+in the warning zone — all on the **first publish**, via `snap=True`, rather than
+ramping in over half an hour.
+
+The warning-zone units use `STATE_STRUGGLING`, the one behaviour nothing else
+simulates: a unit holding *just inside* its limit, which never alarms and is
+exactly what the Watch List exists to catch. It settles at
+`STRUGGLE_MARGIN_FRACTION` (0.15) of the band from its limit — inside the panel's
+0.25 threshold, far enough from the edge that jitter does not tip it into an
+excursion. Its noise is deliberately smaller than a healthy unit's for that reason.
+
+Everything recovers after 24 intervals (2 hours at 300s), so a forgotten simulator
+does not re-notify Slack forever. **These fire real Slack alerts** — the same as any
+other excursion.
+
 ## Simulated failures recover on their own
 
 Faults are not permanent. Each scripted failure has a duration, after which the device

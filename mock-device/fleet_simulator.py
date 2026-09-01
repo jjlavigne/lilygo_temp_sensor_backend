@@ -23,6 +23,7 @@ Usage:
     python fleet_simulator.py --backfill-hours 24   # populate dashboards with history
     python fleet_simulator.py                       # live publish (demo scenario)
     python fleet_simulator.py --scenario healthy    # everything nominal
+    python fleet_simulator.py --scenario showcase   # fill every dashboard panel at once
     python fleet_simulator.py --fail ALO-SIM-02     # force a specific device to fail
 
 This script only ever INSERTs and CREATEs. It never drops tables or deletes rows.
@@ -179,12 +180,25 @@ REAL_DEVICE_SITE = AUBURN_WA
 # OVERCOOL     drifts below the min limit (freeze damage on produce)
 # SENSOR_FAULT reports -127 C, exactly what a disconnected DS18B20 returns
 # OFFLINE      stops publishing entirely, so it can only be caught by a staleness alert
+# STRUGGLING   holds just INSIDE a limit -- never alarms, but should be looked at
 
 STATE_NORMAL = "normal"
 STATE_DOOR_OPEN = "door_open"
 STATE_OVERCOOL = "overcool"
 STATE_SENSOR_FAULT = "sensor_fault"
 STATE_OFFLINE = "offline"
+STATE_STRUGGLING = "struggling"
+
+# Where a STRUGGLING unit settles, as a fraction of its company's safe band away
+# from the limit it is drifting toward. This is the state nothing else simulates:
+# a compressor losing ground or a seal starting to go still reports temperatures
+# that are technically fine, so no alert ever fires and the only warning is that
+# the margin has quietly shrunk.
+#
+# The dashboard's Watch List flags anything with under 0.25 of its band left, so
+# 0.15 sits clearly inside the warning zone without being so near the edge that
+# ordinary jitter tips it over and turns it into an excursion instead.
+STRUGGLE_MARGIN_FRACTION = 0.15
 
 
 class SimulatedDevice:
@@ -209,13 +223,16 @@ class SimulatedDevice:
         self.fail_after_s = None   # seconds into the run before state kicks in
         self.pending_state = None
         self.recover_at_s = None
+        self.snap_on_fail = False  # jump straight to the fault instead of ramping
+        self.struggle_toward = "max"
 
         # Tiny jitter (~100m) so co-located freezer units are individually
         # clickable on the map without looking like they are in different suburbs.
         self.lat = site["lat"] + random.uniform(-0.001, 0.001)
         self.lon = site["lon"] + random.uniform(-0.001, 0.001)
 
-    def schedule_failure(self, state, after_s, recover_after_s=None):
+    def schedule_failure(self, state, after_s, recover_after_s=None,
+                         snap=False, toward="max"):
         """
         Schedule a fault.
 
@@ -224,10 +241,39 @@ class SimulatedDevice:
         recover are realistic for dead hardware, but in a simulator left running they
         make Grafana re-notify Slack every 5 minutes forever. Recovering faults also
         give the demo something better to show: the alert firing AND clearing.
+
+        `snap` puts the device into the fault immediately rather than ramping into
+        it over several intervals. At a 300s interval a gradual ramp takes half an
+        hour to cross a limit, which is realistic but useless when the point is to
+        look at a panel and confirm it works. A step change between two samples is
+        also what a door being opened actually looks like at this sampling rate.
+
+        `toward` picks which limit a STRUGGLING unit drifts at -- "max" or "min".
         """
+        self.struggle_toward = toward
+        self.snap_on_fail = snap
         self.pending_state = state
         self.fail_after_s = after_s
         self.recover_at_s = (after_s + recover_after_s) if recover_after_s else None
+
+    def _struggle_target(self):
+        """Where a struggling unit settles: inside the band, but not by much."""
+        lo, hi = self.company["temp_min_c"], self.company["temp_max_c"]
+        offset = (hi - lo) * STRUGGLE_MARGIN_FRACTION
+        return (lo + offset) if self.struggle_toward == "min" else (hi - offset)
+
+    def _entry_temp(self):
+        """Temperature to jump to when a fault is snapped on rather than ramped."""
+        if self.state == STATE_STRUGGLING:
+            return self._struggle_target()
+        # Land just past the limit and let the normal ramp carry it further, so the
+        # dashboard shows a breach that is still deepening rather than one that
+        # arrived fully formed at its worst.
+        if self.state == STATE_DOOR_OPEN:
+            return self.company["temp_max_c"] + 2.0
+        if self.state == STATE_OVERCOOL:
+            return self.company["temp_min_c"] - 2.0
+        return self.temp
 
     def step(self, elapsed_s, interval_s):
         """Advance the simulation by one interval and return the new temperature."""
@@ -235,6 +281,8 @@ class SimulatedDevice:
         if self.pending_state and elapsed_s >= self.fail_after_s:
             self.state = self.pending_state
             self.pending_state = None
+            if self.snap_on_fail:
+                self.temp = self._entry_temp()
 
         # Fault clears on its own; Grafana sends a "resolved" notification and stops.
         if (self.recover_at_s is not None and self.state != STATE_NORMAL
@@ -262,6 +310,15 @@ class SimulatedDevice:
         elif self.state == STATE_OVERCOOL:
             target = self.company["temp_min_c"] - 4.0
             self.temp += (target - self.temp) * 0.05 + random.uniform(-0.05, 0.05)
+
+        elif self.state == STATE_STRUGGLING:
+            # Converges on the warning zone and holds there. Jitter is deliberately
+            # smaller than a healthy unit's: the point is a unit sitting steadily
+            # too close to its limit, not one bouncing across it. Wide noise here
+            # would produce intermittent excursions and put the device in Needs
+            # Attention, which is the panel this state exists to stay out of.
+            target = self._struggle_target()
+            self.temp += (target - self.temp) * 0.25 + random.gauss(0, 0.04)
 
         else:
             # Mean-reverting random walk: wanders around the baseline but is pulled
@@ -313,6 +370,10 @@ def apply_scenario(fleet, scenario, forced_failures):
       Aloha     a door-open failure ramping past the ceiling  (high-temp alert)
       Nikky USA a disconnected probe reporting -127 C         (plausibility filter)
       S&J       a node that goes silent                        (staleness alert)
+
+    'showcase' exists to check the dashboard rather than to tell a story. It fills
+    every panel at once and immediately, so Needs Attention and the Watch List can
+    both be confirmed working without waiting out a ramp.
     """
     by_id = {d.device_id: d for d in fleet}
 
@@ -332,6 +393,36 @@ def apply_scenario(fleet, scenario, forced_failures):
         # low-battery tile is never empty during a presentation.
         by_id["ALO-SIM-05"].battery = 12.0
         by_id["ALO-SIM-05"].battery_replaceable = False
+
+    elif scenario == "showcase":
+        # Everything starts at once (after_s=0, snap=True) so the first publish
+        # already fills the panels -- no waiting half an hour for a ramp.
+        #
+        # Two units breach, in opposite directions, at different companies: a
+        # single warm unit would not prove the panel handles a company whose
+        # limits are below freezing, and TOO COLD is a different code path.
+        by_id["PLY-SIM-01"].schedule_failure(STATE_DOOR_OPEN, after_s=0,
+                                             recover_after_s=24 * I, snap=True)
+        by_id["NIK-SIM-02"].schedule_failure(STATE_OVERCOOL,  after_s=0,
+                                             recover_after_s=24 * I, snap=True)
+        # A silent node. Needs Attention has to catch this too, and no temperature
+        # rule can -- a dead sensor produces no rows to evaluate.
+        by_id["SNJ-SIM-01"].schedule_failure(STATE_OFFLINE,   after_s=0,
+                                             recover_after_s=24 * I)
+        # Two in the warning zone, one drifting warm and one drifting cold, at
+        # companies whose bands differ. These must NOT alarm: the whole point of
+        # the Watch List is what it catches before an alert would.
+        by_id["ALO-SIM-03"].schedule_failure(STATE_STRUGGLING, after_s=0,
+                                             recover_after_s=24 * I,
+                                             snap=True, toward="max")
+        by_id["PLY-SIM-04"].schedule_failure(STATE_STRUGGLING, after_s=0,
+                                             recover_after_s=24 * I,
+                                             snap=True, toward="min")
+        by_id["ALO-SIM-05"].battery = 12.0
+        by_id["ALO-SIM-05"].battery_replaceable = False
+        # Recovery is 24 intervals (2 hours at the default 300s) rather than never.
+        # Long enough to inspect every panel; short enough that a simulator left
+        # running does not re-notify Slack indefinitely.
 
     elif scenario == "chaos":
         for device in random.sample(fleet, k=max(1, len(fleet) // 4)):
@@ -591,7 +682,7 @@ def main():
                         help=f"Seconds between live publishes (default {PUBLISH_INTERVAL_S})")
     parser.add_argument("--duration", type=int, default=0,
                         help="Stop after N seconds (default: run until Ctrl-C)")
-    parser.add_argument("--scenario", choices=["demo", "healthy", "chaos"], default="demo",
+    parser.add_argument("--scenario", choices=["demo", "healthy", "chaos", "showcase"], default="demo",
                         help="Failure script to run (default: demo)")
     parser.add_argument("--fail", action="append", default=[], metavar="DEVICE_ID",
                         help="Force a device into a high-temp failure immediately")
