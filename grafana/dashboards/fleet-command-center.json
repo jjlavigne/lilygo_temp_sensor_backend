@@ -21,7 +21,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Only units currently out of range, offline, or never heard from. Empty means the fleet is healthy -- unlike an incident list, nothing stays here after it recovers.",
+      "description": "Units currently outside their threshold, offline, or never heard from. Empty means the fleet is healthy \u2014 unlike an incident list, nothing stays here once it recovers.",
       "fieldConfig": {
         "defaults": {
           "noValue": "All units within range"
@@ -30,7 +30,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "problem"
+              "options": "Condition"
             },
             "properties": [
               {
@@ -41,13 +41,21 @@
               },
               {
                 "id": "custom.width",
-                "value": 150
+                "value": 180
               },
               {
                 "id": "mappings",
                 "value": [
                   {
                     "options": {
+                      "ABOVE THRESHOLD": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "BELOW THRESHOLD": {
+                        "color": "blue",
+                        "index": 1
+                      },
                       "NEVER REPORTED": {
                         "color": "purple",
                         "index": 3
@@ -55,14 +63,6 @@
                       "OFFLINE": {
                         "color": "orange",
                         "index": 2
-                      },
-                      "TOO COLD": {
-                        "color": "blue",
-                        "index": 1
-                      },
-                      "TOO WARM": {
-                        "color": "red",
-                        "index": 0
                       }
                     },
                     "type": "value"
@@ -74,7 +74,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "device"
+              "options": "Device"
             },
             "properties": [
               {
@@ -95,7 +95,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "reading"
+              "options": "Reading"
             },
             "properties": [
               {
@@ -115,7 +115,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "degrees_out"
+              "options": "Deviation"
             },
             "properties": [
               {
@@ -151,13 +151,17 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "noValue",
+                "value": "\u2014"
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "last_reading"
+              "options": "Last Reading"
             },
             "properties": [
               {
@@ -184,7 +188,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "degrees_out"
+            "displayName": "Deviation"
           }
         ]
       },
@@ -197,7 +201,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.company || ' / ' || d.site AS location,\n  COALESCE(d.display_name, d.device_id) AS device,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'TOO WARM'\n    ELSE 'TOO COLD'\n  END AS problem,\n  t.temperature_c *9.0/5.0+32 AS reading,\n  GREATEST(t.temperature_c - d.temp_max_c, d.temp_min_c - t.temperature_c)*9.0/5.0 AS degrees_out,\n  t.recorded_at AS last_reading\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.company IN (${company:sqlstring})\n  AND (t.recorded_at IS NULL\n       OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c\n       OR t.temperature_c < d.temp_min_c)\nORDER BY 3, 5 DESC NULLS LAST",
+          "rawSql": "SELECT\n  d.company || ' / ' || d.site AS \"Location\",\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    ELSE 'BELOW THRESHOLD'\n  END AS \"Condition\",\n  t.temperature_c*9.0/5.0+32 AS \"Reading\",\n  CASE WHEN t.recorded_at > now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       THEN GREATEST(t.temperature_c - d.temp_max_c,\n                     d.temp_min_c - t.temperature_c)*9.0/5.0 END AS \"Deviation\",\n  t.recorded_at AS \"Last Reading\"\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.company IN (${company:sqlstring})\n  AND (t.recorded_at IS NULL\n       OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c\n       OR t.temperature_c < d.temp_min_c)\nORDER BY 3, 5 DESC NULLS LAST",
           "refId": "A"
         }
       ],
@@ -223,7 +227,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "status"
+              "options": "Condition"
             },
             "properties": [
               {
@@ -237,15 +241,15 @@
                 "value": [
                   {
                     "options": {
-                      "HIGH": {
+                      "ABOVE THRESHOLD": {
                         "color": "red",
                         "index": 1
                       },
-                      "LOW": {
+                      "BELOW THRESHOLD": {
                         "color": "blue",
                         "index": 2
                       },
-                      "NEVER SEEN": {
+                      "NEVER REPORTED": {
                         "color": "purple",
                         "index": 4
                       },
@@ -264,14 +268,14 @@
               },
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 180
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "last_seen"
+              "options": "Last Seen"
             },
             "properties": [
               {
@@ -305,7 +309,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "temperature"
+              "options": "Temperature"
             },
             "properties": [
               {
@@ -325,7 +329,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(min_ok|max_ok)"
+              "options": "(Min OK|Max OK)"
             },
             "properties": [
               {
@@ -345,7 +349,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "battery_pct"
+              "options": "Battery"
             },
             "properties": [
               {
@@ -376,7 +380,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "device"
+              "options": "Device"
             },
             "properties": [
               {
@@ -408,7 +412,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "status"
+            "displayName": "Condition"
           }
         ]
       },
@@ -421,7 +425,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.company,\n  d.site,\n  COALESCE(d.display_name, d.device_id) AS device,\n  t.temperature_c * 9.0/5.0 + 32 AS temperature,\n  d.temp_min_c * 9.0/5.0 + 32 AS min_ok,\n  d.temp_max_c * 9.0/5.0 + 32 AS max_ok,\n  t.battery_pct,\n  t.recorded_at AS last_seen,\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER SEEN'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s * 3, 60) || ' seconds')::interval\n      THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'HIGH'\n    WHEN t.temperature_c < d.temp_min_c THEN 'LOW'\n    ELSE 'OK'\n  END AS status\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
+          "rawSql": "SELECT\n  d.company AS \"Company\",\n  d.site AS \"Site\",\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  t.temperature_c * 9.0/5.0 + 32 AS \"Temperature\",\n  d.temp_min_c * 9.0/5.0 + 32 AS \"Min OK\",\n  d.temp_max_c * 9.0/5.0 + 32 AS \"Max OK\",\n  t.battery_pct AS \"Battery\",\n  t.recorded_at AS \"Last Seen\",\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK'\n  END AS \"Condition\"\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at\n  FROM telemetry WHERE d.is_active AND device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.company IN (${company:sqlstring})\nORDER BY d.company, COALESCE(d.display_name, d.device_id)",
           "refId": "A"
         }
       ],
@@ -701,7 +705,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "device"
+              "options": "Device"
             },
             "properties": [
               {
@@ -734,7 +738,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "room_left"
+              "options": "Room Left"
             },
             "properties": [
               {
@@ -791,7 +795,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "room_left"
+            "displayName": "Room Left"
           }
         ]
       },
@@ -804,7 +808,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT device, reading, nearest_limit, room_left\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS device,\n    t.temperature_c*9.0/5.0+32 AS reading,\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS nearest_limit,\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS room_left,\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE room_left >= 0 AND room_left < 0.25 * band_width\nORDER BY room_left ASC",
+          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Room Left\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Room Left\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Room Left\" >= 0 AND \"Room Left\" < 0.25 * band_width\nORDER BY \"Room Left\" ASC",
           "refId": "A"
         }
       ],
@@ -823,7 +827,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "device"
+              "options": "Device"
             },
             "properties": [
               {
@@ -840,7 +844,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "in_range"
+              "options": "In Range"
             },
             "properties": [
               {
@@ -849,7 +853,7 @@
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 2
               },
               {
                 "id": "max",
@@ -906,7 +910,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "in_range"
+            "displayName": "In Range"
           }
         ]
       },
@@ -919,7 +923,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS device,\n  d.company,\n  100.0 * count(*) FILTER (\n      WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c\n  ) / count(*) AS in_range\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 3 ASC",
+          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  d.company AS \"Company\",\n  CASE WHEN count(*) FILTER (WHERE t.temperature_c NOT BETWEEN d.temp_min_c AND d.temp_max_c) = 0 THEN 100.0\n       ELSE LEAST(100.0 * count(*) FILTER (WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*), 99.99) END AS \"In Range\"\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 3 ASC",
           "refId": "A"
         }
       ],
@@ -981,13 +985,13 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Share of all readings across the fleet that sat inside their unit's limits.",
+      "description": "Share of all readings taken in the selected compliance window that were inside limits. This is a HISTORICAL figure over the whole window, not the state right now \u2014 see Needs Attention for that. It reads 100% only if nothing went out of range at all.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "decimals": 1,
+          "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1041,11 +1045,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT 100.0 * count(*) FILTER (\n    WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*) AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})",
+          "rawSql": "SELECT CASE WHEN count(*) FILTER (WHERE t.temperature_c NOT BETWEEN d.temp_min_c AND d.temp_max_c) = 0 THEN 100.0\n            ELSE LEAST(100.0 * count(*) FILTER (WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*), 99.99) END AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})",
           "refId": "A"
         }
       ],
-      "title": "Fleet Stayed In Range",
+      "title": "Fleet Stayed In Range \u2014 last $window",
       "type": "stat"
     }
   ],
@@ -1082,39 +1086,39 @@
         "type": "query"
       },
       {
-        "name": "window",
+        "current": {
+          "selected": true,
+          "text": "7 days",
+          "value": "7 days"
+        },
+        "includeAll": false,
         "label": "Compliance window",
-        "type": "custom",
-        "query": "24 hours,7 days,30 days,90 days",
+        "multi": false,
+        "name": "window",
         "options": [
           {
+            "selected": false,
             "text": "24 hours",
-            "value": "24 hours",
-            "selected": false
+            "value": "24 hours"
           },
           {
+            "selected": true,
             "text": "7 days",
-            "value": "7 days",
-            "selected": true
+            "value": "7 days"
           },
           {
+            "selected": false,
             "text": "30 days",
-            "value": "30 days",
-            "selected": false
+            "value": "30 days"
           },
           {
+            "selected": false,
             "text": "90 days",
-            "value": "90 days",
-            "selected": false
+            "value": "90 days"
           }
         ],
-        "current": {
-          "text": "7 days",
-          "value": "7 days",
-          "selected": true
-        },
-        "multi": false,
-        "includeAll": false
+        "query": "24 hours,7 days,30 days,90 days",
+        "type": "custom"
       }
     ]
   },
@@ -1125,5 +1129,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 18
+  "version": 21
 }

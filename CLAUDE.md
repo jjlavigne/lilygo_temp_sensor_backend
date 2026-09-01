@@ -218,7 +218,12 @@ Supporting panels answer questions their interface cannot:
 
   Anything already breaching is excluded — that belongs in Needs Attention, and
   a unit should never appear twice saying different things.
-- **Time In Range — last 7 days** — share of readings inside limits.
+- **Stayed In Range — last $window** — share of readings inside limits.
+  **It reads 100% only when nothing went out of range at all.** Anything imperfect
+  is capped at 99.99, because a rounded 100.0% next to a panel listing breached
+  units is the one number a customer would quote back and the one that must never
+  flatter. It is also a *historical* figure across the whole window, not a
+  statement about right now — Needs Attention answers that.
   **Seven days, not thirty, on purpose**: the metric scores history against
   *current* limits, so a longer window reports a threshold edit as though it were
   an equipment failure. Changing Plymouth from produce to poultry limits dropped
@@ -241,7 +246,16 @@ It uses `LEFT JOIN LATERAL ... LIMIT 1` per device rather than `DISTINCT ON` ove
 join: ~6 ms versus ~650 ms on 350k rows, which matters on a panel refreshing every 10
 seconds. Use the same shape for any future "latest reading per device" query.
 
-Statuses: `OK`, `HIGH`, `LOW`, `OFFLINE`, `NEVER SEEN` (registered but never reported).
+Conditions: `OK`, `ABOVE THRESHOLD`, `BELOW THRESHOLD`, `OFFLINE`, `NEVER REPORTED`.
+
+**Needs Attention and Fleet Status must use the same words.** They describe the same
+device from two angles, so a unit reading `ABOVE THRESHOLD` on one and `HIGH` on the
+other reads like two different findings. The column is `Condition` on both.
+
+**A silent device has no deviation.** Needs Attention leaves it blank rather than
+computing one from the last reading: that gap is however far out it was when last
+heard from, not how far out it is now, and because the panel sorts on deviation a
+days-old number outranked units breaching live.
 
 ## Excursions are computed, not stored
 
