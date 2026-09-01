@@ -276,21 +276,26 @@ out to every tenant.
 Site View did, and it read as a fault: Nikky USA's frozen band (-9.4 to -0.4 F)
 sits about 40 F below Aloha's chilled band (33.8 to 41 F), so both Nikky units
 looked far too cold when only one actually was, and the chart disagreed with the
-Needs Attention count sitting directly above it. Position on a shared axis says
-nothing about being in range when every tenant has different limits.
+Needs Attention count directly above it. Position on a shared axis says nothing
+about being in range when every tenant has different limits.
 
-The chart now plots **degrees from each unit's own nearest limit** — zero is the
-limit, above is in range, below is a breach and the depth is how far out. That is
-correct per *device*, which matters because limits can be overridden per device
-(`Auburn Freezer 2` has a 30 F floor where its Aloha siblings have 33.8 F), so
-drawing one band per company would have been subtly wrong. It is also the same
-quantity as the *Degrees From Limit* column, so chart, table and count agree.
+The chart is now **one small panel per unit**, built with Grafana panel `repeat`
+over a hidden `$unit` variable chained to `$site` and `$company` — so adding or
+retiring a device changes the page with no dashboard edit. Each panel plots that
+unit's temperature plus its own `temp_min_c` / `temp_max_c` **as extra series**,
+which is the only way to draw a different band in each repeated panel; panel
+options cannot vary per repeat.
 
-It is a **difference**, so `* 9.0/5.0` with no `+32`.
+**Per unit, not per company, because limits can be overridden per device.**
+`Auburn Freezer 2` has a 30 F floor where its four Aloha siblings have 33.8 F.
+Any band drawn for a whole company is therefore wrong for somebody: draw the
+loosest and a real breach hides inside it, draw the strictest and a healthy unit
+looks broken. Either way the chart contradicts the count again, which is the bug
+this was fixing.
 
-**The fleet dashboard's Temperature History has the same flaw** — 21 units across
-four bands on one axis. Left as raw temperature deliberately, since at fleet level
-people want to see actual degrees, but it cannot be read for compliance.
+**The fleet dashboard's Temperature History still has this flaw** — 21 units
+across four bands on one axis. Left as raw temperature deliberately, since at
+fleet level people want actual degrees, but it cannot be read for compliance.
 
 **Site View's Watch List is the fleet dashboard's Watch List** — same title, same
 columns, same thresholds, same colouring, with only `d.site` added to the WHERE
