@@ -173,10 +173,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 0,
+        "h": 6,
         "w": 18,
-        "h": 6
+        "x": 0,
+        "y": 0
       },
       "id": 20,
       "options": {
@@ -397,10 +397,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 6,
+        "h": 11,
         "w": 24,
-        "h": 11
+        "x": 0,
+        "y": 6
       },
       "id": 5,
       "options": {
@@ -450,10 +450,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 17,
+        "h": 10,
         "w": 16,
-        "h": 10
+        "x": 0,
+        "y": 17
       },
       "id": 6,
       "options": {
@@ -492,7 +492,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "One marker per site, red when something there needs attention. Hover for the device count.",
+      "description": "One marker per location. Red when anything there needs attention.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -532,10 +532,10 @@
         ]
       },
       "gridPos": {
-        "x": 16,
-        "y": 17,
+        "h": 10,
         "w": 8,
-        "h": 10
+        "x": 16,
+        "y": 17
       },
       "id": 7,
       "options": {
@@ -558,12 +558,12 @@
               "showLegend": false,
               "style": {
                 "color": {
-                  "field": "problems",
+                  "field": "needs_attention",
                   "fixed": "green"
                 },
                 "opacity": 0.85,
                 "size": {
-                  "fixed": 14,
+                  "fixed": 15,
                   "field": null
                 },
                 "symbol": {
@@ -571,13 +571,13 @@
                   "mode": "fixed"
                 },
                 "text": {
-                  "field": "site",
+                  "field": "label",
                   "fixed": ""
                 },
                 "textConfig": {
-                  "fontSize": 11,
+                  "fontSize": 12,
                   "offsetX": 0,
-                  "offsetY": -16,
+                  "offsetY": -18,
                   "textAlign": "center",
                   "textBaseline": "middle"
                 }
@@ -613,11 +613,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.company || ' / ' || d.site AS site,\n  avg(t.latitude)  AS latitude,\n  avg(t.longitude) AS longitude,\n  CASE WHEN count(*) FILTER (\n         WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n            OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) = 0\n       THEN 'All ' || count(*) || ' units OK'\n       ELSE count(*) FILTER (\n         WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n            OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c)\n            || ' of ' || count(*) || ' need attention'\n  END AS status,\n  count(*) FILTER (\n    WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS problems\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, recorded_at, latitude, longitude FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.company IN (${company:sqlstring}) AND t.latitude IS NOT NULL\nGROUP BY 1",
+          "rawSql": "SELECT\n  d.site AS location,\n  avg(t.latitude)  AS latitude,\n  avg(t.longitude) AS longitude,\n  count(*) AS units,\n  count(*) FILTER (WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS needs_attention,\n  d.site || ' \u2014 ' || CASE\n    WHEN count(*) FILTER (WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) = 0 THEN 'all ' || count(*) || ' OK'\n    ELSE count(*) FILTER (WHERE t.recorded_at IS NULL OR t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       OR t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) || ' of ' || count(*) || ' need attention'\n  END AS label\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c, recorded_at, latitude, longitude FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.company IN (${company:sqlstring}) AND t.latitude IS NOT NULL\nGROUP BY d.site",
           "refId": "A"
         }
       ],
-      "title": "Sites",
+      "title": "Locations",
       "type": "geomap"
     },
     {
@@ -654,10 +654,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 36,
+        "h": 8,
         "w": 24,
-        "h": 8
+        "x": 0,
+        "y": 36
       },
       "id": 9,
       "options": {
@@ -692,58 +692,106 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "How many degrees each unit can still move before it breaches. Small bars are close; negative is already over.",
+      "description": "Each unit's current reading, the limit it is nearest, and how far it can still move. Top of the list is closest to alarming.",
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "device"
+            },
+            "properties": [
               {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "green",
-                "value": 5
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open device detail",
+                    "url": "/d/device-detail/device-detail?var-device=${__value.raw}&${__url_time_range}"
+                  }
+                ]
               }
             ]
           },
-          "unit": "fahrenheit"
-        },
-        "overrides": []
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(reading|nearest_limit)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "room_left"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 2
+                    },
+                    {
+                      "color": "green",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 27,
+        "h": 9,
         "w": 12,
-        "h": 9
+        "x": 0,
+        "y": 27
       },
       "id": 21,
       "options": {
-        "displayMode": "gradient",
-        "maxVizHeight": 20,
-        "minVizWidth": 8,
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        },
-        "showUnfilled": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "room_left",
+            "desc": false
+          }
+        ]
       },
       "targets": [
         {
@@ -754,19 +802,19 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT device, margin FROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS device,\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS margin\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x ORDER BY margin ASC",
+          "rawSql": "SELECT device, reading, nearest_limit, room_left FROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS device,\n    t.temperature_c*9.0/5.0+32 AS reading,\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS nearest_limit,\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS room_left\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x ORDER BY room_left ASC",
           "refId": "A"
         }
       ],
-      "title": "Degrees Before Alarm",
-      "type": "bargauge"
+      "title": "Closest to Their Limits",
+      "type": "table"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "description": "Share of readings inside each unit's own limits over the past week. Uses current limits, so changing a threshold re-scores history.",
+      "description": "Percentage of this week's readings that sat inside each unit's own limits. Uses today's limits, so changing a threshold re-scores the week.",
       "fieldConfig": {
         "defaults": {},
         "overrides": [
@@ -845,10 +893,10 @@
         ]
       },
       "gridPos": {
-        "x": 12,
-        "y": 27,
+        "h": 9,
         "w": 12,
-        "h": 9
+        "x": 12,
+        "y": 27
       },
       "id": 22,
       "options": {
@@ -873,47 +921,34 @@
           "refId": "A"
         }
       ],
-      "title": "Time In Range \u2014 last 7 days",
+      "title": "Stayed In Range \u2014 last 7 days",
       "type": "table"
     },
     {
-      "id": 30,
-      "title": "Units Monitored",
-      "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "gridPos": {
-        "x": 18,
-        "y": 0,
-        "w": 6,
-        "h": 3
-      },
       "description": "Active devices. Every one is covered by all three alert rules automatically.",
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS units FROM devices d WHERE d.is_active AND d.company IN (${company:sqlstring})",
-          "editorMode": "code"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "fixedColor": "text",
+            "mode": "fixed"
           }
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 30,
       "options": {
+        "colorMode": "none",
+        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -921,46 +956,36 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto",
-        "colorMode": "none",
-        "graphMode": "none"
-      }
-    },
-    {
-      "id": 31,
-      "title": "Fleet Time In Range \u2014 7 days",
-      "type": "stat",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "cfmk49pm86epsf"
+        "textMode": "auto"
       },
-      "gridPos": {
-        "x": 18,
-        "y": 3,
-        "w": 6,
-        "h": 3
-      },
-      "description": "Share of all readings across the fleet that sat inside their unit's limits.",
       "targets": [
         {
-          "refId": "A",
           "datasource": {
             "type": "grafana-postgresql-datasource",
             "uid": "cfmk49pm86epsf"
           },
+          "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT 100.0 * count(*) FILTER (\n    WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*) AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '7 days' AND d.company IN (${company:sqlstring})",
-          "editorMode": "code"
+          "rawSql": "SELECT count(*) AS units FROM devices d WHERE d.is_active AND d.company IN (${company:sqlstring})",
+          "refId": "A"
         }
       ],
+      "title": "Units Monitored",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "description": "Share of all readings across the fleet that sat inside their unit's limits.",
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 1,
           "color": {
             "mode": "thresholds"
           },
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -981,11 +1006,21 @@
                 "value": 99.5
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "id": 31,
       "options": {
+        "colorMode": "background",
+        "graphMode": "none",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -993,10 +1028,23 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto",
-        "colorMode": "background",
-        "graphMode": "none"
-      }
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT 100.0 * count(*) FILTER (\n    WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*) AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '7 days' AND d.company IN (${company:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "title": "Fleet Stayed In Range",
+      "type": "stat"
     }
   ],
   "refresh": "10s",
@@ -1040,5 +1088,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 15
+  "version": 16
 }
