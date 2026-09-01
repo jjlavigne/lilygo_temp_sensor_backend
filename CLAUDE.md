@@ -243,6 +243,36 @@ seconds. Use the same shape for any future "latest reading per device" query.
 
 Statuses: `OK`, `HIGH`, `LOW`, `OFFLINE`, `NEVER SEEN` (registered but never reported).
 
+## Excursions are computed, not stored
+
+There is no `incidents` table. The **Excursions** panel on Device Detail finds
+excursions by reading `telemetry` directly: `LAG()` marks where a device crosses
+between in-range and out-of-range, a running `SUM` over those crossings numbers
+each run, and grouping by that run number collapses consecutive bad readings into
+one incident with a start, a duration and a worst-case overshoot.
+
+This was chosen over a watcher process writing rows. A watcher only knows about
+excursions that happen after it is switched on; the query covers all history that
+exists, and cannot drift out of sync with the readings it describes. If a device's
+limits are later corrected, past excursions re-score to match — which is right,
+because the old numbers were scored against a threshold now known to be wrong.
+
+Duration adds one `expected_interval_s` to the span, since a single out-of-range
+reading spans an interval rather than an instant — without it, every one-reading
+excursion would report a duration of zero.
+
+**Acknowledgements and corrective-action notes cannot work this way.** They are
+data about a person's response, not about the readings, so they will need a real
+table keyed on device plus start time whenever they get built.
+
+## Two dashboard windows, deliberately different
+
+The **Compliance window** dropdown (`$window`: 24 hours / 7 days / 30 days /
+90 days) drives the Stayed In Range panels and the Excursions panel. It is
+**not** the dashboard time picker, which defaults to 6 hours and drives the
+charts. One span cannot serve both — 6 hours is right for watching a temperature
+move and meaningless as a compliance figure. Do not "simplify" by merging them.
+
 ## Telemetry payload and schema
 
 Published JSON:

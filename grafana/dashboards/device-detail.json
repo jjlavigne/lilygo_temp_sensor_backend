@@ -1,4 +1,5 @@
 {
+  "description": "Full history for one device, including retired units. The fleet views hide retired devices; this one deliberately does not, so their readings stay auditable.",
   "editable": true,
   "id": 2028976548851712,
   "panels": [
@@ -521,6 +522,165 @@
       ],
       "title": "Recent Readings",
       "type": "table"
+    },
+    {
+      "id": 40,
+      "title": "Excursions \u2014 last $window",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "cfmk49pm86epsf"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 9
+      },
+      "description": "Every run of consecutive out-of-range readings, collapsed into one entry: when it began, how long it lasted, and the furthest it went past the limit. Computed from the readings themselves, so it covers all history, not only what was recorded going forward.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH flagged AS (\n  SELECT t.recorded_at, t.temperature_c, d.temp_min_c, d.temp_max_c,\n         d.expected_interval_s,\n         (t.temperature_c > d.temp_max_c OR t.temperature_c < d.temp_min_c) AS bad\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id\n  WHERE COALESCE(d.display_name, d.device_id) = ${device:sqlstring} AND t.recorded_at > now() - interval '$window'\n),\nedges AS (\n  SELECT *, LAG(bad) OVER (ORDER BY recorded_at) AS prev_bad FROM flagged\n),\nruns AS (\n  SELECT *, SUM(CASE WHEN bad IS DISTINCT FROM prev_bad THEN 1 ELSE 0 END)\n              OVER (ORDER BY recorded_at) AS run_id\n  FROM edges\n)\nSELECT\n  min(recorded_at) AS started,\n  EXTRACT(EPOCH FROM (max(recorded_at) - min(recorded_at))) + max(expected_interval_s) AS duration,\n  CASE WHEN max(temperature_c) > max(temp_max_c) THEN 'TOO WARM' ELSE 'TOO COLD' END AS kind,\n  max(GREATEST(temperature_c - temp_max_c, temp_min_c - temperature_c)) * 9.0/5.0 AS worst_by,\n  count(*) AS readings\nFROM runs\nWHERE bad\nGROUP BY run_id\nORDER BY started DESC",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No excursions in this period"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.width",
+                "value": 140
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "yellow",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 3600
+                    },
+                    {
+                      "color": "red",
+                      "value": 10800
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kind"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "TOO WARM": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "TOO COLD": {
+                        "color": "blue",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worst_by"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "fahrenheit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "started",
+            "desc": true
+          }
+        ]
+      }
     }
   ],
   "refresh": "10s",
@@ -546,6 +706,41 @@
         "refresh": 1,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "name": "window",
+        "label": "History window",
+        "type": "custom",
+        "query": "24 hours,7 days,30 days,90 days",
+        "options": [
+          {
+            "text": "24 hours",
+            "value": "24 hours",
+            "selected": false
+          },
+          {
+            "text": "7 days",
+            "value": "7 days",
+            "selected": false
+          },
+          {
+            "text": "30 days",
+            "value": "30 days",
+            "selected": true
+          },
+          {
+            "text": "90 days",
+            "value": "90 days",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "30 days",
+          "value": "30 days",
+          "selected": true
+        },
+        "multi": false,
+        "includeAll": false
       }
     ]
   },
@@ -556,6 +751,5 @@
   "timezone": "browser",
   "title": "Device Detail",
   "uid": "device-detail",
-  "version": 3,
-  "description": "Full history for one device, including retired units. The fleet views hide retired devices; this one deliberately does not, so their readings stay auditable."
+  "version": 4
 }

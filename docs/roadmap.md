@@ -1,8 +1,9 @@
 # Roadmap
 
-> **Done (1 Sept 2026).** Needs Attention, Margin to Nearest Limit, Time In Range,
-> and a readable fleet temperature chart. Revert point: `git tag pre-ui-overhaul`.
-> Items 1 (full incident tracking) and 4–8 below remain open.
+> **Done (1 Sept 2026).** Needs Attention, Watch List, Stayed In Range with a
+> selectable window (24h / 7d / 30d / 90d), an excursion history per device, and a
+> readable fleet temperature chart. Revert point: `git tag pre-ui-overhaul`.
+> Items 3–10 remain open; 1 and 2 are covered below.
 
 
 Candidate changes, ranked. Effort estimates assume the existing stack; nothing
@@ -17,11 +18,24 @@ See `docs/competitor-analysis.md` for the evidence behind each.
 
 ---
 
-## 1 · Incident tracking — PARITY — ~half a day
+## 1 · Incident tracking — MOSTLY DONE
 
-**The gap.** We alert when a device goes out of range and again when it recovers,
-but nothing records the excursion as an *event*. Nobody can answer "how bad was
-that?" the next morning.
+**Done.** The **Excursions** panel on Device Detail lists every excursion: when it
+started, how long it lasted, how far past the limit it went at worst, and how many
+readings it covers. Warm and cold are coloured differently, and duration is banded
+by colour on the same <1h / 1–3h / >3h boundaries SmartSense uses.
+
+It is computed from `telemetry` with window functions rather than written to an
+`incidents` table by a watcher. That was the better trade: **it works on history
+that already exists**, so the panel was populated the moment it was added instead
+of starting empty and filling up over the following weeks. It also cannot drift
+out of sync with the readings, and it re-scores correctly if a limit is corrected.
+
+**Still open:** acknowledgement and corrective-action notes (items 4 and 5) do
+need somewhere to write, so they will need a table keyed on device + start time.
+The severity banding SmartSense reports is display-only and already covered.
+
+*Previously recorded as the gap:*
 
 SmartSense records start time, **duration**, severity banded as Short (<1h) /
 Medium (1–3h) / Long (>3h), and **max / min / average** reading per incident.
@@ -36,9 +50,19 @@ and a per-incident view.
 
 ---
 
-## 2 · Percent time in range — PARITY — ~2 hours
+## 2 · Percent time in range — DONE
 
-**The gap.** Their Asset Health report scores every asset by the share of time it
+**Done.** **Stayed In Range** scores every unit against its own company's limits,
+sorted worst-first, with a **Compliance window** dropdown at the top of the
+dashboard offering 24 hours / 7 days / 30 days / 90 days. The fleet-wide figure
+sits beside it and follows the same window.
+
+The dropdown is deliberately separate from the dashboard time picker: the picker
+defaults to 6 hours because that is the right span for watching temperatures move,
+and it is a useless span for a compliance figure. Tying them together would have
+made one of the two wrong.
+
+*Previously recorded as the gap:* Their Asset Health report scores every asset by the share of time it
 spent inside its limits, which is how they surfaced that Plymouth Phoenix 3 sits
 at 54%.
 

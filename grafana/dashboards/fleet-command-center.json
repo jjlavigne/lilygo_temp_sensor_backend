@@ -919,11 +919,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS device,\n  d.company,\n  100.0 * count(*) FILTER (\n      WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c\n  ) / count(*) AS in_range\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '7 days' AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 3 ASC",
+          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS device,\n  d.company,\n  100.0 * count(*) FILTER (\n      WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c\n  ) / count(*) AS in_range\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})\nGROUP BY 1, 2\nORDER BY 3 ASC",
           "refId": "A"
         }
       ],
-      "title": "Stayed In Range \u2014 last 7 days",
+      "title": "Stayed In Range \u2014 last $window",
       "type": "table"
     },
     {
@@ -1041,7 +1041,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT 100.0 * count(*) FILTER (\n    WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*) AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '7 days' AND d.company IN (${company:sqlstring})",
+          "rawSql": "SELECT 100.0 * count(*) FILTER (\n    WHERE t.temperature_c BETWEEN d.temp_min_c AND d.temp_max_c) / count(*) AS in_range\nFROM telemetry t JOIN devices d ON d.device_id=t.device_id AND d.is_active\nWHERE t.recorded_at > now() - interval '$window' AND d.company IN (${company:sqlstring})",
           "refId": "A"
         }
       ],
@@ -1080,6 +1080,41 @@
         "refresh": 1,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "name": "window",
+        "label": "Compliance window",
+        "type": "custom",
+        "query": "24 hours,7 days,30 days,90 days",
+        "options": [
+          {
+            "text": "24 hours",
+            "value": "24 hours",
+            "selected": false
+          },
+          {
+            "text": "7 days",
+            "value": "7 days",
+            "selected": true
+          },
+          {
+            "text": "30 days",
+            "value": "30 days",
+            "selected": false
+          },
+          {
+            "text": "90 days",
+            "value": "90 days",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "7 days",
+          "value": "7 days",
+          "selected": true
+        },
+        "multi": false,
+        "includeAll": false
       }
     ]
   },
@@ -1090,5 +1125,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 17
+  "version": 18
 }

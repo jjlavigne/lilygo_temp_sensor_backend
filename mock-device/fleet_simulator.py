@@ -239,6 +239,12 @@ class SimulatedDevice:
         # Fault clears on its own; Grafana sends a "resolved" notification and stops.
         if (self.recover_at_s is not None and self.state != STATE_NORMAL
                 and elapsed_s >= self.recover_at_s):
+            # A probe fault leaves self.temp at -127. Letting the normal walk climb
+            # back from there passes through -60, -50, -40 -- values ingestion
+            # accepts as plausible, so a recovering fault was writing an hour of
+            # fictional deep-freeze readings and showing up as a real excursion.
+            if self.state == STATE_SENSOR_FAULT:
+                self.temp = self.baseline
             self.state = STATE_NORMAL
             self.recover_at_s = None
 
