@@ -744,7 +744,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Room Left"
+              "options": "Degrees From Limit"
             },
             "properties": [
               {
@@ -801,7 +801,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "Room Left"
+            "displayName": "Degrees From Limit"
           }
         ]
       },
@@ -814,7 +814,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Room Left\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Room Left\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Room Left\" >= 0 AND \"Room Left\" < 0.25 * band_width\nORDER BY \"Room Left\" ASC",
+          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Degrees From Limit\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Degrees From Limit\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes' AND d.company IN (${company:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Degrees From Limit\" >= 0 AND \"Degrees From Limit\" < 0.25 * band_width\nORDER BY \"Degrees From Limit\" ASC",
           "refId": "A"
         }
       ],
@@ -952,15 +952,16 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 18,
-        "y": 0,
+        "h": 3,
         "w": 6,
-        "h": 3
+        "x": 18,
+        "y": 0
       },
       "id": 30,
       "options": {
         "colorMode": "none",
         "graphMode": "none",
+        "justifyMode": "center",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -968,12 +969,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value",
         "text": {
-          "valueSize": 32,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 32
         },
-        "justifyMode": "center"
+        "textMode": "value"
       },
       "targets": [
         {
@@ -992,43 +992,30 @@
       "type": "stat"
     },
     {
-      "id": 31,
-      "title": "Companies",
-      "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "gridPos": {
-        "x": 18,
-        "y": 3,
-        "w": 6,
-        "h": 3
-      },
       "description": "Tenants currently in view. Multi-tenancy is the point of the system.",
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "editorMode": "code",
-          "rawSql": "SELECT count(DISTINCT company) AS companies FROM devices\nWHERE is_active AND company IN (${company:sqlstring})"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "fixedColor": "text",
+            "mode": "fixed"
           }
         },
         "overrides": []
       },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 3
+      },
+      "id": 31,
       "options": {
+        "graphMode": "none",
+        "justifyMode": "center",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -1037,13 +1024,26 @@
           "values": false
         },
         "text": {
-          "valueSize": 32,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 32
         },
-        "justifyMode": "center",
-        "graphMode": "none",
         "textMode": "value"
-      }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(DISTINCT company) AS companies FROM devices\nWHERE is_active AND company IN (${company:sqlstring})",
+          "refId": "A"
+        }
+      ],
+      "title": "Companies",
+      "type": "stat"
     }
   ],
   "refresh": "10s",
@@ -1122,5 +1122,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 23
+  "version": 24
 }

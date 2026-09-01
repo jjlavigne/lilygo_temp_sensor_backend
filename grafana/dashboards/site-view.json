@@ -41,10 +41,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 0,
+        "h": 4,
         "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 0
       },
       "id": 1,
       "options": {
@@ -58,8 +58,8 @@
           "values": false
         },
         "text": {
-          "valueSize": 34,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 34
         },
         "textMode": "value"
       },
@@ -119,10 +119,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 4,
-        "y": 0,
+        "h": 4,
         "w": 6,
-        "h": 4
+        "x": 4,
+        "y": 0
       },
       "id": 2,
       "options": {
@@ -136,8 +136,8 @@
           "values": false
         },
         "text": {
-          "valueSize": 34,
-          "titleSize": 13
+          "titleSize": 13,
+          "valueSize": 34
         },
         "textMode": "value"
       },
@@ -204,7 +204,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Room Left"
+              "options": "Degrees From Limit"
             },
             "properties": [
               {
@@ -250,10 +250,10 @@
         ]
       },
       "gridPos": {
-        "x": 10,
-        "y": 0,
+        "h": 4,
         "w": 14,
-        "h": 4
+        "x": 10,
+        "y": 0
       },
       "id": 3,
       "options": {
@@ -261,7 +261,7 @@
         "sortBy": [
           {
             "desc": false,
-            "displayName": "Room Left"
+            "displayName": "Degrees From Limit"
           }
         ]
       },
@@ -274,7 +274,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Room Left\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Room Left\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND d.company IN (${company:sqlstring}) AND d.site IN (${site:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Room Left\" >= 0 AND \"Room Left\" < 0.25 * band_width\nORDER BY \"Room Left\" ASC",
+          "rawSql": "SELECT \"Device\", \"Reading\", \"Nearest Limit\", \"Degrees From Limit\"\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    COALESCE(d.display_name, t.device_id) AS \"Device\",\n    t.temperature_c*9.0/5.0+32 AS \"Reading\",\n    CASE WHEN (d.temp_max_c - t.temperature_c) < (t.temperature_c - d.temp_min_c)\n         THEN d.temp_max_c ELSE d.temp_min_c END *9.0/5.0+32 AS \"Nearest Limit\",\n    LEAST(d.temp_max_c - t.temperature_c, t.temperature_c - d.temp_min_c)*9.0/5.0 AS \"Degrees From Limit\",\n    (d.temp_max_c - d.temp_min_c)*9.0/5.0 AS band_width\n  FROM telemetry t\n  JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n    AND d.company IN (${company:sqlstring}) AND d.site IN (${site:sqlstring})\n  ORDER BY t.device_id, t.recorded_at DESC\n) x\nWHERE \"Degrees From Limit\" >= 0 AND \"Degrees From Limit\" < 0.25 * band_width\nORDER BY \"Degrees From Limit\" ASC",
           "refId": "A"
         }
       ],
@@ -364,7 +364,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(Reading|Min OK|Max OK|Room Left)"
+              "options": "(Reading|Min OK|Max OK|Degrees From Limit)"
             },
             "properties": [
               {
@@ -384,7 +384,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Room Left"
+              "options": "Degrees From Limit"
             },
             "properties": [
               {
@@ -488,10 +488,10 @@
         ]
       },
       "gridPos": {
-        "x": 0,
-        "y": 4,
+        "h": 10,
         "w": 24,
-        "h": 10
+        "x": 0,
+        "y": 4
       },
       "id": 4,
       "options": {
@@ -506,7 +506,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  d.company AS \"Company\",\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END AS \"Condition\",\n  t.temperature_c*9.0/5.0+32 AS \"Reading\",\n  d.temp_min_c*9.0/5.0+32 AS \"Min OK\",\n  d.temp_max_c*9.0/5.0+32 AS \"Max OK\",\n  CASE WHEN t.recorded_at > now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       THEN LEAST(d.temp_max_c - t.temperature_c,\n                  t.temperature_c - d.temp_min_c)*9.0/5.0 END AS \"Room Left\",\n  t.battery_pct AS \"Battery\",\n  t.recorded_at AS \"Last Seen\"\nFROM devices d LEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nORDER BY CASE CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END\n           WHEN 'ABOVE THRESHOLD' THEN 1 WHEN 'BELOW THRESHOLD' THEN 2\n           WHEN 'OFFLINE' THEN 3 WHEN 'NEVER REPORTED' THEN 4 ELSE 5 END,\n         \"Room Left\" ASC NULLS FIRST",
+          "rawSql": "SELECT\n  COALESCE(d.display_name, d.device_id) AS \"Device\",\n  d.company AS \"Company\",\n  CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END AS \"Condition\",\n  t.temperature_c*9.0/5.0+32 AS \"Reading\",\n  d.temp_min_c*9.0/5.0+32 AS \"Min OK\",\n  d.temp_max_c*9.0/5.0+32 AS \"Max OK\",\n  CASE WHEN t.recorded_at > now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval\n       THEN LEAST(d.temp_max_c - t.temperature_c,\n                  t.temperature_c - d.temp_min_c)*9.0/5.0 END AS \"Degrees From Limit\",\n  t.battery_pct AS \"Battery\",\n  t.recorded_at AS \"Last Seen\"\nFROM devices d LEFT JOIN LATERAL (\n  SELECT temperature_c, battery_pct, recorded_at FROM telemetry\n  WHERE device_id = d.device_id ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active AND d.site IN (${site:sqlstring}) AND d.company IN (${company:sqlstring})\nORDER BY CASE CASE\n    WHEN t.recorded_at IS NULL THEN 'NEVER REPORTED'\n    WHEN t.recorded_at < now() - (GREATEST(d.expected_interval_s*3,60)||' seconds')::interval THEN 'OFFLINE'\n    WHEN t.temperature_c > d.temp_max_c THEN 'ABOVE THRESHOLD'\n    WHEN t.temperature_c < d.temp_min_c THEN 'BELOW THRESHOLD'\n    ELSE 'OK' END\n           WHEN 'ABOVE THRESHOLD' THEN 1 WHEN 'BELOW THRESHOLD' THEN 2\n           WHEN 'OFFLINE' THEN 3 WHEN 'NEVER REPORTED' THEN 4 ELSE 5 END,\n         \"Degrees From Limit\" ASC NULLS FIRST",
           "refId": "A"
         }
       ],
@@ -532,10 +532,10 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 14,
+        "h": 9,
         "w": 24,
-        "h": 9
+        "x": 0,
+        "y": 14
       },
       "id": 5,
       "options": {
@@ -619,5 +619,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 7
+  "version": 9
 }
