@@ -26,7 +26,16 @@ const char* MQTT_PASS   = "";
 // --- Identity ---
 // Must exactly match the device_id registered in the admin UI at :8080, or the
 // readings are stored but belong to no company and appear on no dashboard.
+//
+// ⚠️ This is also the join key for every row this board has ever written.
+// Changing it ORPHANS that history. To relabel a unit, change DISPLAY_NAME
+// below (and devices.display_name in the admin UI) -- never this.
 const char* DEVICE_ID   = "PLY-CHILL-02";
+
+// What the OLED prints along the top. Screen only: never published, nothing
+// joins on it, safe to change whenever. Keep it matching devices.display_name
+// so the board and the dashboard call the unit the same thing.
+const char* DISPLAY_NAME = "DOCK-DOOR-01";
 
 // --- Optional: site coordinates for the fleet map ---
 // The facility location, not a GPS fix. Comment out to omit from the payload.

@@ -39,12 +39,27 @@
 // --- Pins ---
 const int ONE_WIRE_PIN = 25;       // D2 on the FireBeetle silkscreen
 
-// The FireBeetle 2 ESP32-E has an onboard divider for battery voltage. Confirm
-// the pin against DFRobot's pinout before trusting the reading; if it is wrong
-// you will get a plausible-looking but meaningless percentage, which is worse
-// than none. Set to -1 to omit battery from the payload entirely (correct for a
-// mains-powered unit, which has no cell to measure).
-const int BATTERY_ADC_PIN = -1;
+// Battery sense. GPIO 34 is wired to VBAT through an onboard 1M/1M divider
+// (DFRobot wiki, dfr0654), which is why readBatteryPercent() multiplies by 2.
+//
+// GPIO 34 specifically, for two reasons that both matter:
+//   * It is on ADC1. ADC2 pins (0, 2, 4, 12-15, 25-27) stop working the moment
+//     WiFi is active -- analogRead() returns garbage with no error. A battery
+//     reading on an ADC2 pin would look fine on the bench and fail in the field.
+//   * It is input-only, so it cannot collide with anything driven elsewhere.
+//
+// No conflict with ONE_WIRE_PIN (25). Set to -1 to omit battery from the payload
+// entirely, which is correct for a unit with no cell to measure.
+const int BATTERY_ADC_PIN = 34;
+
+// What the SCREEN shows. Deliberately separate from DEVICE_ID, which is the
+// MQTT client id and the join key for every row this board has ever written --
+// change DEVICE_ID and the history orphans. Set DISPLAY_NAME in config.h to
+// rename the screen safely; it should match devices.display_name in Postgres so
+// the board and the dashboard call the unit the same thing.
+#ifndef DISPLAY_NAME
+#define DISPLAY_NAME DEVICE_ID
+#endif
 
 OneWire oneWire(ONE_WIRE_PIN);
 DallasTemperature sensors(&oneWire);
@@ -100,7 +115,7 @@ bool lastPublishOk = false;
 void showStatus(const char *line1, const char *line2) {
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_6x12_tf);
-    u8g2.drawStr(X_LEFT, 12, DEVICE_ID);
+    u8g2.drawStr(X_LEFT, 12, DISPLAY_NAME);
     u8g2.drawHLine(X_LEFT, 16, CONTENT_W);
     u8g2.setFont(u8g2_font_7x13_tf);
     u8g2.drawStr(X_LEFT, 38, line1);
@@ -111,13 +126,13 @@ void showStatus(const char *line1, const char *line2) {
     u8g2.sendBuffer();
 }
 
-void showReading(float tempC, bool linkUp) {
+void showReading(float tempC, bool linkUp, int batteryPct) {
     char buf[24];
     u8g2.clearBuffer();
 
     // Device name along the top, so a wall of these is identifiable at a glance.
     u8g2.setFont(u8g2_font_6x12_tf);
-    u8g2.drawStr(X_LEFT, 10, DEVICE_ID);
+    u8g2.drawStr(X_LEFT, 10, DISPLAY_NAME);
     u8g2.drawHLine(X_LEFT, 13, CONTENT_W);
 
     if (isnan(tempC) || tempC <= DS18B20_DISCONNECTED) {
@@ -156,6 +171,13 @@ void showReading(float tempC, bool linkUp) {
     // Advisory only. The authoritative limits live in the devices table and are
     // evaluated by Grafana; these exist so somebody walking past can tell at a
     // glance. If the two ever disagree, the database is right.
+    //
+    // ⚠️ These are COMPILE-TIME constants. Changing a device's limits in the
+    // admin UI does NOT reach this screen -- it needs a reflash. Leave
+    // DISPLAY_TEMP_MIN_F/MAX_F undefined to omit this line entirely, which is
+    // the safer choice for any unit whose limits get tuned, because a screen
+    // reading OK beside a dashboard reading ABOVE THRESHOLD is worse than a
+    // screen that stays quiet.
     // y=61 not 62: at 64px tall, descenders on the bottom row clip at 62.
     u8g2.setFont(u8g2_font_6x12_tf);
     if (tempF > DISPLAY_TEMP_MAX_F) {
@@ -167,11 +189,26 @@ void showReading(float tempC, bool linkUp) {
     }
 #endif
 
-    // Link state in the corner: a unit that has stopped reporting still shows a
-    // temperature, so without this you cannot tell a live reading from a stale one.
+    // Bottom right shows the battery, because "ONLINE" earned its space poorly:
+    // when the link is up it is the expected state and tells you nothing, and
+    // when it is down this screen is usually replaced by a connection status
+    // screen anyway. Battery is the one thing nobody can infer by looking.
+    //
+    // NO LINK still wins the corner when it happens: a stale reading presented as
+    // current is the one genuinely misleading thing this display could do, and
+    // that matters more than the battery level in the moment it occurs.
     u8g2.setFont(u8g2_font_6x12_tf);
-    const char *link = linkUp ? "ONLINE" : "NO LINK";
-    u8g2.drawStr(X_RIGHT - u8g2.getStrWidth(link), 61, link);
+    char corner[10];
+    if (!linkUp) {
+        snprintf(corner, sizeof(corner), "NO LINK");
+    } else if (batteryPct >= 0) {
+        snprintf(corner, sizeof(corner), "%d%%", batteryPct);
+    } else {
+        // USB powered, no cell to read. Say so rather than leaving a gap that
+        // looks like a fault -- same wording as the dashboard.
+        snprintf(corner, sizeof(corner), "USB");
+    }
+    u8g2.drawStr(X_RIGHT - u8g2.getStrWidth(corner), 61, corner);
 
     u8g2.sendBuffer();
 }
@@ -264,8 +301,21 @@ void reconnect() {
 
 int readBatteryPercent() {
     if (BATTERY_ADC_PIN < 0) return -1;
-    int raw = analogRead(BATTERY_ADC_PIN);
-    float voltage = (raw / 4095.0f) * 3.3f * 2.0f;   // onboard divider
+
+    // analogReadMilliVolts() applies the chip's own factory ADC calibration.
+    // The raw ESP32 ADC is markedly nonlinear near the rails, so the obvious
+    // (raw / 4095) * 3.3 is off by enough to misreport a battery by several
+    // percent -- and a battery gauge that lies is worse than no gauge.
+    //
+    // Averaged over 8 samples because the ADC is noisy: a percentage that
+    // jitters by itself reads as a failing cell.
+    uint32_t mv = 0;
+    for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(BATTERY_ADC_PIN);
+    float voltage = (mv / 8.0f / 1000.0f) * 2.0f;   // 1M/1M divider on GPIO 34
+
+    // A LiPo is flat at 3.2 V and full at 4.2 V. Linear between the two is a
+    // simplification -- the real discharge curve is flatter in the middle --
+    // but it is monotonic and good enough to answer "should I swap this".
     if (voltage >= 4.2f) return 100;
     if (voltage <= 3.2f) return 0;
     return (int)((voltage - 3.2f) / (4.2f - 3.2f) * 100.0f);
@@ -308,15 +358,17 @@ void loop() {
     float tempC = sensors.getTempCByIndex(0);
     lastTempC = tempC;
 
+    // Read before the probe-fault branch below, so the fault screen can still
+    // show a battery level. A dead probe on a flat battery should say both.
+    int battery = readBatteryPercent();
+
     if (tempC <= DS18B20_DISCONNECTED) {
         Serial.println("WARNING: DS18B20 reads -127 C -- probe disconnected.");
         Serial.println("  Check the 4.7k pull-up between the data line and 3V3.");
-        showReading(tempC, client.connected());
+        showReading(tempC, client.connected(), battery);
         // Still fall through: the backend rejects it and logs the fault, which is
         // how a broken probe surfaces as OFFLINE rather than silently vanishing.
     }
-
-    int battery = readBatteryPercent();
 
     Serial.print("Temp: ");
     Serial.print(tempC);
@@ -351,7 +403,7 @@ void loop() {
     lastPublishOk = client.publish(MQTT_TOPIC, buffer);
     lastPublishMs = millis();
 
-    showReading(tempC, client.connected() && lastPublishOk);
+    showReading(tempC, client.connected() && lastPublishOk, battery);
 
 #if DEMO_MODE
     delay(DEMO_PUBLISH_MS);
