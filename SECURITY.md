@@ -20,6 +20,7 @@ rotated first.**
 | `docker-compose.yml` | Postgres password default |
 | `fleet_data-backup-*.sql.gz` | Every reading, plus `admin_users` password hashes |
 | `grafana-storage-backup-*.tar.gz` | Grafana database — dashboards, alert rules, and the **encrypted Slack webhook** |
+| `grafana/alerting/contact-points.json` | The **Slack webhook URL in plaintext** |
 
 ## Rotation checklist
 

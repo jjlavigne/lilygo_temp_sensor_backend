@@ -3,11 +3,17 @@
 Two files, both **records** rather than provisioning inputs.
 
 - `alert-rules.yaml` — the two live rules, exported 2026-09-04
-- `contact-points.json` — the Slack contact point, **with the webhook URL
-  replaced by a placeholder**. Grafana redacts that URL through every API, so it
-  genuinely cannot be exported. Everything else — the name, and the custom
-  message template that formats each alert — is preserved here, and rewriting
-  that template from memory would be the tedious part of a rebuild.
+- `contact-points.json` — the Slack contact point, **including the live webhook
+  URL**. Grafana redacts that URL through every API, so it could not be exported
+  and was supplied by hand from Slack. Stored here deliberately, because this
+  repository is private and losing the webhook was the one unrecoverable failure
+  in the whole system.
+
+  **This file contains a live credential.** Anyone holding that URL can post
+  messages into the Slack channel. If this repository is ever made public or
+  shared, regenerate the webhook at <https://api.slack.com/apps> *first* — the
+  old URL stops working the moment you do, which is exactly what you want. See
+  `SECURITY.md`.
 
 ## ⚠️ Never point Grafana's provisioning at these files
 
@@ -44,7 +50,8 @@ string, so a different name means alerts fire and notify nobody.
 
 ## Getting the webhook URL
 
-It is not recoverable from Grafana. Either:
+It is in `contact-points.json` in this directory. If that is ever lost, or you
+need a new one:
 
 - **From Slack**: <https://api.slack.com/apps> → your app → *Incoming Webhooks* →
   copy the URL, or

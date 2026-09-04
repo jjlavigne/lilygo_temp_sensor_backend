@@ -6,7 +6,7 @@
     "settings": {
       "text": "{{ range .Alerts }}\n{{ if eq .Status \"firing\" }}\nAlert: {{ .Annotations.summary }}\nDetails: {{ .Annotations.description }}\n{{ else }}\nAlert: {{ .Labels.alertname }} - RESOLVED\nDetails: The system has successfully returned to normal operations.\n{{ end }}\n{{ end }}",
       "title": "Plymouth Fleet Monitor: {{ if eq .Status \"firing\" }} {{ .CommonLabels.alertname }}{{ else }} RESOLVED{{ end }}",
-      "url": "<<PASTE YOUR SLACK WEBHOOK URL HERE>>"
+      "url": "https://hooks.slack.com/services/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"
     },
     "disableResolveMessage": false
   }
