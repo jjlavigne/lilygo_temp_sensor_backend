@@ -158,6 +158,20 @@ Both use **simplified routing** (`notification_settings.receiver`) straight to t
 existing `Slack Integration` contact point, grouped by `alertname, company, site`. They
 do **not** go through the global notification policy tree.
 
+**⚠️ Validate alert-rule SQL after every edit: `python grafana/check_alert_rules.py`.**
+A broken rule does not announce itself. A broken *panel* shows an error to whoever
+opens it; a broken *rule* fails silently in the scheduler and simply stops
+protecting you. Adding the `is_active` filter put `WHERE` after `GROUP BY` in the
+Sensor Offline rule, and it was dead for **seven days** and 177,000 failed
+evaluations before anyone noticed.
+
+The only symptom is a Slack message reading `DatasourceErrorAlert: [no value] -
+[no value]: [no value] offline`, with `%!f(<nil>)` where a temperature should be.
+**That is a broken query, not a broken device** — `[no value]` means the labels
+could not be computed because the query never returned rows. Check
+`docker compose logs --since 10m grafana | grep "Failed to evaluate"` for the real
+error.
+
 > **Never provision alerting from files here.** Grafana's alerting provisioning
 > *replaces* the notification config wholesale, which would destroy the working Slack
 > contact point (its webhook is encrypted in `grafana.db` and cannot be read back).
