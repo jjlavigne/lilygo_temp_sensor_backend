@@ -667,6 +667,21 @@ both Python services, and the firmware source.
 so build artifacts (`.o`, `.elf`, `.bin`) are **not** in the repo. Still skip that
 directory when searching — it's large build output, not source.
 
+## ⚠️ The repository is PRIVATE and intentionally holds credentials
+
+Julia chose on 4 Sept 2026 to commit `.env`, the firmware `config.h`, and both
+data backups so the system survives the internship VM being handed back. The repo
+is private — verified: the unauthenticated GitHub API returns 404 while
+authenticated pushes work.
+
+**`SECURITY.md` has the rotation checklist.** Work through it if the repo is ever
+made public or shared, and when the system reaches a permanent home. Note that
+rotating does not erase anything from git history; it only makes the old value
+useless.
+
+Keep following the rule below for *new* secrets — the decision above was a
+specific, deliberate trade for a specific situation, not a general licence.
+
 ## ⚠️ Secrets are in plaintext AND pushed to the remote
 
 These are tracked files, so they have been pushed to GitHub:
