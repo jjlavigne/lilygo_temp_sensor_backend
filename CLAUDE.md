@@ -505,6 +505,19 @@ connection screen anyway. `NO LINK` still takes that corner when it happens,
 because a stale reading shown as current is the one genuinely misleading thing
 the display can do. `USB` shows where there is no cell, matching the dashboard.
 
+## Battery percentage must be filtered, not raw
+
+The percentage scale amplifies ADC noise badly: `readBatteryPercent()` maps a
+1.0 V span (3.2-4.2 V) onto 0-100%, so **1% is 10 mV at the cell and 5 mV at the
+pin** — inside the ESP32 ADC's own error. Raw, a healthy full battery reported
+88-100% while the true voltage moved only 4.08-4.11 V, which reads as a failing
+cell.
+
+So the reading takes the **median** of 15 samples (a mean is dragged by the
+outliers the ADC throws when the radio transmits and the rail dips) and then an
+exponential moving average across publishes at 0.05. A cell cannot physically
+move 3% in five seconds, so anything that fast is noise by definition.
+
 ## Battery is absent on the FireBeetle by design
 
 `Freezer-FireBeetle-001` (`PLY-REAL-SENSOR-01`) reports **no** `battery_pct` — every

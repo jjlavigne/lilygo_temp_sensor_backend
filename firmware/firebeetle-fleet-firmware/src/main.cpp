@@ -280,29 +280,44 @@ void reconnect() {
 int readBatteryPercent() {
     if (BATTERY_ADC_PIN < 0) return -1;
 
-    // analogReadMilliVolts() applies the chip's own factory ADC calibration.
-    // The raw ESP32 ADC is markedly nonlinear near the rails, so the obvious
-    // (raw / 4095) * 3.3 is off by enough to misreport a battery by several
-    // percent -- and a battery gauge that lies is worse than no gauge.
-    //
-    // Averaged over 8 samples because the ADC is noisy: a percentage that
-    // jitters by itself reads as a failing cell.
-    uint32_t mv = 0;
-    for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(BATTERY_ADC_PIN);
-    float voltage = (mv / 8.0f / 1000.0f) * 2.0f;   // 1M/1M divider on GPIO 34
+    // Median of several samples, not a mean. The ESP32 ADC throws occasional
+    // wild outliers -- usually when the radio transmits and the rail dips --
+    // and one bad sample drags a mean while a median ignores it entirely.
+    const int N = 15;
+    uint32_t s[N];
+    for (int i = 0; i < N; i++) s[i] = analogReadMilliVolts(BATTERY_ADC_PIN);
+    for (int i = 1; i < N; i++) {                    // insertion sort, N is tiny
+        uint32_t k = s[i];
+        int j = i - 1;
+        while (j >= 0 && s[j] > k) { s[j + 1] = s[j]; j--; }
+        s[j + 1] = k;
+    }
+    float voltage = (s[N / 2] / 1000.0f) * 2.0f;     // 1M/1M divider on GPIO 34
 
     // Below any real LiPo means nothing is attached and the pin is floating.
     // Reporting that as 0% would put a dead-battery warning on a healthy board
     // running from USB, so say "no battery" instead and let the screen show USB.
     if (voltage < 2.5f) return -1;
 
-    // A LiPo is flat at 3.2 V and full at 4.2 V. Linear between the two is a
-    // simplification -- the real discharge curve is flatter in the middle --
-    // but it is monotonic and good enough to answer "should I swap this".
-    if (voltage >= 4.2f) return 100;
-    if (voltage <= 3.2f) return 0;
-    return (int)((voltage - 3.2f) / (4.2f - 3.2f) * 100.0f);
+    float pct;
+    if (voltage >= 4.2f)      pct = 100.0f;
+    else if (voltage <= 3.2f) pct = 0.0f;
+    else                      pct = (voltage - 3.2f) / (4.2f - 3.2f) * 100.0f;
+
+    // Smooth across publishes. The percentage scale badly amplifies ADC noise:
+    // this maps a 1.0 V span onto 0-100%, so 1% is 10 mV at the cell and 5 mV at
+    // the pin -- well inside the ADC's own error. A cell physically cannot move
+    // 3% in five seconds, so anything that fast is measurement noise by
+    // definition, and showing it makes a healthy battery look like a failing one.
+    //
+    // Deliberately slow (0.05). Battery level is the one value on this display
+    // that should look boring.
+    static float smoothed = -1.0f;
+    if (smoothed < 0.0f) smoothed = pct;             // first reading seeds it
+    else                 smoothed += (pct - smoothed) * 0.05f;
+    return (int)(smoothed + 0.5f);
 }
+
 
 
 void setup() {
