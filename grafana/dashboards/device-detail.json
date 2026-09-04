@@ -44,11 +44,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto",
         "text": {
-          "valueSize": 28,
-          "titleSize": 13
-        }
+          "titleSize": 13,
+          "valueSize": 28
+        },
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -78,12 +78,7 @@
           },
           "mappings": [
             {
-              "type": "value",
               "options": {
-                "OK": {
-                  "color": "green",
-                  "index": 0
-                },
                 "ABOVE THRESHOLD": {
                   "color": "red",
                   "index": 1
@@ -92,15 +87,20 @@
                   "color": "blue",
                   "index": 2
                 },
+                "NEVER REPORTED": {
+                  "color": "purple",
+                  "index": 4
+                },
                 "OFFLINE": {
                   "color": "orange",
                   "index": 3
                 },
-                "NEVER REPORTED": {
-                  "color": "purple",
-                  "index": 4
+                "OK": {
+                  "color": "green",
+                  "index": 0
                 }
-              }
+              },
+              "type": "value"
             }
           ],
           "thresholds": {
@@ -132,11 +132,11 @@
           "fields": "/.*/",
           "values": false
         },
-        "textMode": "value",
         "text": {
-          "valueSize": 22,
-          "titleSize": 13
-        }
+          "titleSize": 13,
+          "valueSize": 22
+        },
+        "textMode": "value"
       },
       "targets": [
         {
@@ -183,7 +183,8 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "percent",
+          "noValue": "mains"
         },
         "overrides": []
       },
@@ -204,11 +205,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto",
         "text": {
-          "valueSize": 28,
-          "titleSize": 13
-        }
+          "titleSize": 13,
+          "valueSize": 28
+        },
+        "textMode": "auto"
       },
       "targets": [
         {
@@ -224,7 +225,8 @@
         }
       ],
       "title": "Battery",
-      "type": "stat"
+      "type": "stat",
+      "description": "Blank means the device does not report a battery level, which is correct for a mains-powered unit \u2014 it has no cell to measure. It is not a missing reading."
     },
     {
       "datasource": {
@@ -280,11 +282,11 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value",
         "text": {
-          "valueSize": 28,
-          "titleSize": 13
-        }
+          "titleSize": 13,
+          "valueSize": 28
+        },
+        "textMode": "value"
       },
       "targets": [
         {
@@ -767,5 +769,5 @@
   "timezone": "browser",
   "title": "Device Detail",
   "uid": "device-detail",
-  "version": 5
+  "version": 6
 }

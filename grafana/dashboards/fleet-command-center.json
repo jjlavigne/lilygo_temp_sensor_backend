@@ -374,6 +374,10 @@
                   "mode": "gradient",
                   "type": "gauge"
                 }
+              },
+              {
+                "id": "noValue",
+                "value": "mains"
               }
             ]
           },
@@ -1122,5 +1126,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 24
+  "version": 25
 }

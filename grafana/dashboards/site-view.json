@@ -466,6 +466,10 @@
                     }
                   ]
                 }
+              },
+              {
+                "id": "noValue",
+                "value": "mains"
               }
             ]
           },
@@ -514,47 +518,22 @@
       "type": "table"
     },
     {
-      "id": 5,
-      "title": "$unit",
-      "type": "timeseries",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 6,
-        "h": 5
-      },
-      "repeat": "unit",
-      "repeatDirection": "h",
-      "maxPerRow": 4,
       "description": "This unit's temperature against its own limits. Inside the dashed lines is healthy. Each unit is charted separately because limits can differ per device, so a shared axis would make a normal freezer look like a failing one.",
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "cfmk49pm86epsf"
-          },
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT $__timeGroupAlias(t.recorded_at, $__interval),\n  avg(t.temperature_c * 9.0/5.0 + 32) AS \"Temperature\",\n  min(d.temp_min_c   * 9.0/5.0 + 32) AS \"Min\",\n  max(d.temp_max_c   * 9.0/5.0 + 32) AS \"Max\"\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at)\n  AND COALESCE(d.display_name, d.device_id) = ${unit:sqlstring}\nGROUP BY 1 ORDER BY 1",
-          "editorMode": "code"
-        }
-      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "fahrenheit",
-          "decimals": 1,
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 0,
-            "showPoints": "never",
+            "axisSoftMax": null,
             "axisSoftMin": null,
-            "axisSoftMax": null
-          }
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "decimals": 1,
+          "unit": "fahrenheit"
         },
         "overrides": [
           {
@@ -566,8 +545,8 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "blue",
+                  "mode": "fixed"
                 }
               }
             ]
@@ -581,8 +560,8 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "fixed",
-                  "fixedColor": "semi-dark-red"
+                  "fixedColor": "semi-dark-red",
+                  "mode": "fixed"
                 }
               },
               {
@@ -592,11 +571,11 @@
               {
                 "id": "custom.lineStyle",
                 "value": {
-                  "fill": "dash",
                   "dash": [
                     8,
                     6
-                  ]
+                  ],
+                  "fill": "dash"
                 }
               },
               {
@@ -611,6 +590,14 @@
           }
         ]
       },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "maxPerRow": 4,
       "options": {
         "legend": {
           "showLegend": false
@@ -619,7 +606,24 @@
           "mode": "multi",
           "sort": "none"
         }
-      }
+      },
+      "repeat": "unit",
+      "repeatDirection": "h",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cfmk49pm86epsf"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT $__timeGroupAlias(t.recorded_at, $__interval),\n  avg(t.temperature_c * 9.0/5.0 + 32) AS \"Temperature\",\n  min(d.temp_min_c   * 9.0/5.0 + 32) AS \"Min\",\n  max(d.temp_max_c   * 9.0/5.0 + 32) AS \"Max\"\nFROM telemetry t\nJOIN devices d ON d.device_id = t.device_id AND d.is_active\nWHERE $__timeFilter(t.recorded_at)\n  AND COALESCE(d.display_name, d.device_id) = ${unit:sqlstring}\nGROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "$unit",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -662,22 +666,22 @@
         "type": "query"
       },
       {
-        "name": "unit",
-        "label": "Unit",
-        "type": "query",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "cfmk49pm86epsf"
         },
+        "hide": 2,
+        "includeAll": true,
+        "label": "Unit",
+        "multi": true,
+        "name": "unit",
         "query": "SELECT COALESCE(display_name, device_id) FROM devices\nWHERE is_active AND site IN (${site:sqlstring})\n  AND company IN (${company:sqlstring}) ORDER BY 1;",
         "refresh": 1,
-        "multi": true,
-        "includeAll": true,
-        "hide": 2,
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
+        "type": "query"
       }
     ]
   },
@@ -688,5 +692,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 11
+  "version": 12
 }

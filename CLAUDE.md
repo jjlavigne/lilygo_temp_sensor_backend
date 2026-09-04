@@ -472,6 +472,45 @@ Dashboard: http://localhost:3000/d/fleet-command-center/fleet-command-center
 Expect one offline alert per simulated device roughly 15 minutes after stopping the
 simulator — that is the staleness rule working correctly, not a fault.
 
+## Battery is absent on the FireBeetle by design
+
+`Freezer-FireBeetle-001` (`PLY-REAL-SENSOR-01`) reports **no** `battery_pct` — every
+row is NULL, while every simulated device reports one. That is not a pipeline fault:
+`BATTERY_ADC_PIN = -1` in `firmware/firebeetle-fleet-firmware/src/main.cpp`, so
+`readBatteryPercent()` returns -1 and the field is omitted from the payload.
+
+It is off because **the correct ADC pin for the FireBeetle 2 ESP32-E was never
+confirmed against DFRobot's pinout**, and a wrong pin yields a plausible-looking
+but meaningless percentage — worse than no reading at all on a compliance screen.
+It is also moot while the board runs on USB, which it must to publish every 5 s.
+
+Panels show `mains` rather than blank where battery is NULL, so it reads as a
+deliberate absence instead of a missing reading. The Battery Levels bargauge
+filters NULLs out entirely, so no empty bar appears.
+
+To enable it: confirm the pin, set `BATTERY_ADC_PIN`, reflash, and run the board
+on the LiPo. Check the divider ratio in `readBatteryPercent()` at the same time.
+
+## Alert latency: what to tune for a live demo
+
+From probe-in-the-water to Slack message, three delays stack:
+
+| Stage | Setting | Value |
+|---|---|---|
+| Query evaluation | rule group `interval` | 10 s (Grafana's default *minimum*) |
+| Pending | rule `for` | 0 s — fires on the first bad evaluation |
+| First notification | `group_wait` | 1 s |
+| Repeat dunk, same group | `group_interval` | 10 s |
+
+Worst case ≈ 11 s, typical ≈ 6 s. `group_interval` was 1 min, which meant a
+*second* demo could sit a full minute before Slack said anything — the worst
+possible moment for it to look broken.
+
+**Going below 10 s evaluation needs `GF_UNIFIED_ALERTING_MIN_INTERVAL` and a
+Grafana restart**, which is not free here: this stack has twice hit a stale Docker
+Desktop port proxy after a restart (container healthy, port open, log silent). Do
+it well before a presentation or not at all.
+
 ## Timing: two speeds on purpose
 
 | | Interval | Staleness alert after |
