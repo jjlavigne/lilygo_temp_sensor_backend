@@ -14,15 +14,36 @@ away.
 | `fleet_data-backup-*.sql.gz` | project root | Every reading. ~2 MB gzipped. |
 | `.env` | project root | Passwords. `.env.example` documents the shape. |
 | `firmware/firebeetle-fleet-firmware/src/config.h` | that path | WiFi + MQTT credentials. |
-| **Slack webhook URL** | nowhere readable | Grafana encrypts it inside `grafana.db` and will not read it back. Copy it from Slack, or regenerate it. |
+| `grafana-storage-backup-*.tar.gz` | project root | Dashboards, alert rules **and the Slack webhook**. ~21 MB. |
+
+**The Slack webhook is inside that Grafana archive**, encrypted. It restores
+correctly *provided no custom `GF_SECURITY_SECRET_KEY` is set* — none is today, so
+Grafana uses its built-in default key and a restore on any machine decrypts it.
+If you ever set one, it becomes a fifth thing to carry, and without it every
+stored secret in that backup is unreadable.
+
+Copy the webhook URL out of Slack into a password manager anyway. It costs a
+minute and removes the only single point of failure in this list.
 
 Put those four on a USB stick or in a password manager. Without the first, you
 keep the system but lose the history; without the last, alerts stop.
 
-Optionally also copy `grafana-storage-backup-*.tar.gz`. Restoring that volume
-brings back dashboards, alert rules **and** the Slack contact point in one step,
-which makes steps 5–7 unnecessary. It is the fastest route when moving to a
-machine you control. Steps 5–7 exist for rebuilding from git alone.
+Restoring the Grafana archive brings back dashboards, alert rules **and** the
+Slack contact point in one step, which makes steps 5–7 unnecessary:
+
+```bash
+docker compose stop grafana
+docker run --rm -v fleet-telemetry-pipeline_grafana-storage:/data -v "$PWD":/backup   alpine sh -c "rm -rf /data/* && tar xzf /backup/grafana-storage-backup-2026-09-04.tar.gz -C /data"
+docker compose start grafana
+```
+
+That is the fastest route when moving to a machine you control. Steps 5–7 exist
+for rebuilding from git alone, when you do not have the archive.
+
+**Never put any of these four in the repository.** Git history is permanent — a
+secret pushed once stays in the history even after the file is deleted, and this
+repo already carries credentials from an earlier mistake (see the secrets section
+of `CLAUDE.md`). Use a password manager and a USB stick or private cloud folder.
 
 ---
 
