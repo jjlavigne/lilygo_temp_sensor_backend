@@ -291,6 +291,11 @@ int readBatteryPercent() {
     for (int i = 0; i < 8; i++) mv += analogReadMilliVolts(BATTERY_ADC_PIN);
     float voltage = (mv / 8.0f / 1000.0f) * 2.0f;   // 1M/1M divider on GPIO 34
 
+    // Below any real LiPo means nothing is attached and the pin is floating.
+    // Reporting that as 0% would put a dead-battery warning on a healthy board
+    // running from USB, so say "no battery" instead and let the screen show USB.
+    if (voltage < 2.5f) return -1;
+
     // A LiPo is flat at 3.2 V and full at 4.2 V. Linear between the two is a
     // simplification -- the real discharge curve is flatter in the middle --
     // but it is monotonic and good enough to answer "should I swap this".

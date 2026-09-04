@@ -491,6 +491,14 @@ stays the MQTT client id and the join key for every row the board has written.
 Renaming the screen must never touch it. `DISPLAY_NAME` defaults to `DEVICE_ID`
 when undefined, so older configs are unaffected.
 
+**`DISPLAY_NAME` must be a `#define`, not a `const char*`.** `main.cpp` falls back
+with `#ifndef DISPLAY_NAME`, and the preprocessor cannot see a variable — declare
+it as a variable and the guard fires anyway, silently rewriting every use back to
+`DEVICE_ID`. The board then shows the device id and the intended name is stripped
+from the binary as unreferenced. It compiles cleanly either way, which is why the
+build is checked by searching `firmware.bin` for the expected strings rather than
+trusting a successful compile.
+
 **Bottom-right is battery, not link state.** `ONLINE` was the expected state and
 said nothing when true; when false, this screen is usually replaced by a
 connection screen anyway. `NO LINK` still takes that corner when it happens,

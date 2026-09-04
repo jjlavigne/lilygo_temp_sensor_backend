@@ -32,10 +32,12 @@ const char* MQTT_PASS   = "";
 // below (and devices.display_name in the admin UI) -- never this.
 const char* DEVICE_ID   = "PLY-CHILL-02";
 
-// What the OLED prints along the top. Screen only: never published, nothing
+// What the OLED prints along the top. A #define, not a variable: main.cpp
+// falls back to DEVICE_ID via #ifndef, and #ifndef cannot see a variable.
+// Screen only: never published, nothing
 // joins on it, safe to change whenever. Keep it matching devices.display_name
 // so the board and the dashboard call the unit the same thing.
-const char* DISPLAY_NAME = "DOCK-DOOR-01";
+#define DISPLAY_NAME "DOCK-DOOR-01"
 
 // --- Optional: site coordinates for the fleet map ---
 // The facility location, not a GPS fix. Comment out to omit from the payload.
