@@ -4,6 +4,10 @@ Guidance for Claude Code when working in this repository.
 
 ## Where things are written down
 
+- **`RESTORE.md`** — how to rebuild the whole stack on a new machine or network,
+  and **what has to be carried across by hand because git cannot hold it**: the
+  database dump, `.env`, the firmware `config.h`, and the Slack webhook (which
+  Grafana encrypts and will not read back). Read it before decommissioning the VM.
 - **`docs/competitor-analysis.md`** — what SmartSense actually does at Plymouth,
   observed from the live account. Their configuration gaps, their reporting
   features, and where we are genuinely ahead or behind.
@@ -625,6 +629,32 @@ an obvious error locally. The fix is a `username_pw_set` call matching `ingestio
 
 The firmware's `reconnect()` decodes PubSubClient state codes to plain English on
 serial — `4` is bad credentials, `5` is unauthorized. Useful when debugging the board.
+
+## ⚠️ What the repository does NOT contain
+
+Cloning this repo gets you the system but not its contents. These exist only on
+the machine it runs on, and `RESTORE.md` covers replacing each:
+
+| Missing | Consequence |
+|---|---|
+| `pgdata` volume | Every reading. ~198k rows since 18 Jun 2026. |
+| `grafana-storage` volume | Dashboards, alert rules, datasource, **Slack webhook** |
+| `.env` | Every password. Shape documented in `.env.example`. |
+| `firmware/.../config.h` | WiFi + MQTT credentials for the board |
+
+The **Slack webhook is the only one that is gone for good** — Grafana encrypts it
+inside `grafana.db` and has no API to read it back. Everything else can be
+regenerated; that one has to be recovered from Slack.
+
+Dashboards are exported to `grafana/dashboards/*.json` and alert rules to
+`grafana/alerting/alert-rules.yaml`. **Re-export after changing either**, or the
+repo drifts from what is live — the alert rules file sat five weeks stale before
+anyone noticed.
+
+`grafana/provisioning/datasources/postgres.yaml` exists for restores and is
+**deliberately not mounted** by the current compose file: the live datasource was
+made by hand, and provisioning it would make it read-only in the UI. `RESTORE.md`
+step 5 is the only place it should be enabled.
 
 ## Source control
 

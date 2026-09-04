@@ -1,0 +1,37 @@
+# Grafana datasource, for restoring on a new machine.
+#
+# NOT mounted by docker-compose on the current VM. The live datasource was made
+# by hand, and provisioning it now would make it read-only in the UI and risk
+# disturbing a working system. It is here so a fresh install is reproducible --
+# RESTORE.md says when to mount it.
+#
+# The uid is pinned deliberately. Every dashboard panel refers to the datasource
+# by uid, so if Grafana mints a new one on restore, every panel reports
+# "datasource not found" and all three dashboards come up blank.
+#
+# Note the database name lives under jsonData.database for this plugin, not the
+# top-level `database:` key, which Grafana 11+ leaves empty.
+#
+# It connects as grafana_viewer, a READ-ONLY role -- not admin. That is both good
+# practice and a tripwire: a table created by admin is invisible to Grafana until
+# granted. See the GRANT section in CLAUDE.md.
+
+apiVersion: 1
+
+datasources:
+  - name: grafana-postgresql-datasource
+    type: grafana-postgresql-datasource
+    uid: cfmk49pm86epsf
+    access: proxy
+    url: telemetry-db:5432
+    user: grafana_viewer
+    isDefault: true
+    jsonData:
+      database: fleet_data
+      sslmode: disable
+      postgresVersion: 1500
+      maxOpenConns: 100
+      maxIdleConns: 100
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: ${GRAFANA_VIEWER_PASSWORD}

@@ -1,280 +1,365 @@
-# EXPORTED FOR BACKUP AND REFERENCE -- DO NOT PLACE IN grafana/provisioning/
+# Exported from the live Grafana on 2026-09-04. RECORD ONLY -- do not point
+# Grafana's provisioning at this file.
 #
-# Grafana's alerting provisioning REPLACES the notification config wholesale.
-# Loading this as a provisioning file would destroy the working Slack contact
-# point, whose webhook is encrypted in grafana.db and cannot be read back.
+# Alerting provisioning REPLACES the notification configuration wholesale, which
+# would destroy the Slack contact point. Its webhook is encrypted inside
+# grafana.db and cannot be read back, so that loss is permanent.
 #
-# To restore: recreate via the API with the X-Disable-Provenance: true header,
-# which also keeps the rules editable in the UI. See CLAUDE.md.
-#
-# Exported: 2026-08-07T17:52:12Z
----
-apiVersion: 1
-groups:
-    - orgId: 1
-      name: Slack Integration
-      folder: Fleet Monitoring
-      interval: 10s
-      rules:
-        - uid: cfmvv4vyka48wd
-          title: Fleet Temperature Excursion
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: cfmk49pm86epsf
-              model:
-                datasource:
-                    type: postgres
-                    uid: cfmk49pm86epsf
-                editorMode: code
-                format: table
-                intervalMs: 1000
-                maxDataPoints: 43200
-                rawQuery: true
-                rawSql: |-
-                    SELECT company, site, device_id, safe_range_f, excursion_f
-                    FROM (
-                      SELECT DISTINCT ON (t.device_id)
-                        d.company,
-                        d.site,
-                        t.device_id,
-                        round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||
-                          round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,
-                        GREATEST(
-                          t.temperature_c - d.temp_max_c,
-                          d.temp_min_c - t.temperature_c
-                        ) * 9.0/5.0 AS excursion_f
-                      FROM telemetry t JOIN devices d USING (device_id)
-                      WHERE t.recorded_at > now() - interval '30 minutes'
-                      ORDER BY t.device_id, t.recorded_at DESC
-                    ) latest
-                refId: A
-            - refId: B
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                settings:
-                    mode: dropNN
-                type: reduce
-            - refId: C
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 0
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                            - C
-                      reducer:
-                        params: []
-                        type: last
-                      type: query
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-            - refId: D
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: cfmk49pm86epsf
-              model:
-                datasource:
-                    type: postgres
-                    uid: cfmk49pm86epsf
-                editorMode: code
-                format: table
-                intervalMs: 1000
-                maxDataPoints: 43200
-                rawQuery: true
-                rawSql: |-
-                    SELECT company, site, device_id, safe_range_f, temperature_f
-                    FROM (
-                      SELECT DISTINCT ON (t.device_id)
-                        d.company,
-                        d.site,
-                        t.device_id,
-                        round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||
-                          round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,
-                        t.temperature_c * 9.0/5.0 + 32 AS temperature_f
-                      FROM telemetry t JOIN devices d USING (device_id)
-                      WHERE t.recorded_at > now() - interval '30 minutes'
-                      ORDER BY t.device_id, t.recorded_at DESC
-                    ) latest
-                refId: D
-            - refId: E
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: D
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: E
-                settings:
-                    mode: dropNN
-                type: reduce
-          noDataState: OK
-          execErrState: Error
-          annotations:
-            description: Reading {{ printf "%.1f" $values.E.Value }} °F. Safe range {{ $labels.safe_range_f }} °F. Currently {{ printf "%.1f" $values.B.Value }} °F outside the limit.
-            summary: '{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} out of range'
-          labels:
-            severity: critical
-          isPaused: false
-          notification_settings:
-            receiver: Slack Integration
-            group_by:
-                - alertname
-                - company
-                - site
-            group_wait: 5s
-            group_interval: 1m
-            repeat_interval: 5m
-        - uid: efpnadcr4vim8f
-          title: Fleet Sensor Offline
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: cfmk49pm86epsf
-              model:
-                datasource:
-                    type: postgres
-                    uid: cfmk49pm86epsf
-                editorMode: code
-                format: table
-                intervalMs: 1000
-                maxDataPoints: 43200
-                rawQuery: true
-                rawSql: |-
-                    SELECT
-                      d.company, d.site, d.device_id,
-                      EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))
-                        / GREATEST(d.expected_interval_s * 3, 60) AS silence_ratio
-                    FROM devices d
-                    LEFT JOIN telemetry t ON t.device_id = d.device_id
-                     AND t.recorded_at > now() - interval '6 hours'
-                    GROUP BY d.company, d.site, d.device_id, d.expected_interval_s
-                refId: A
-            - refId: B
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                settings:
-                    mode: dropNN
-                type: reduce
-            - refId: C
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 1
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                            - C
-                      reducer:
-                        params: []
-                        type: last
-                      type: query
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-            - refId: D
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: cfmk49pm86epsf
-              model:
-                datasource:
-                    type: postgres
-                    uid: cfmk49pm86epsf
-                editorMode: code
-                format: table
-                intervalMs: 1000
-                maxDataPoints: 43200
-                rawQuery: true
-                rawSql: |-
-                    SELECT d.company, d.site, d.device_id, t.temperature_f
-                    FROM devices d
-                    LEFT JOIN LATERAL (
-                      SELECT temperature_c * 9.0/5.0 + 32 AS temperature_f
-                      FROM telemetry WHERE device_id = d.device_id
-                      ORDER BY recorded_at DESC LIMIT 1
-                    ) t ON true
-                refId: D
-            - refId: E
-              queryType: expression
-              datasourceUid: __expr__
-              model:
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: D
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: E
-                settings:
-                    mode: dropNN
-                type: reduce
-          noDataState: OK
-          execErrState: Error
-          annotations:
-            description: No readings arriving. Last known temperature {{ printf "%.1f" $values.E.Value }} °F. No data is being recorded for this unit.
-            summary: '{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} offline'
-          labels:
-            severity: warning
-          isPaused: false
-          notification_settings:
-            receiver: Slack Integration
-            group_by:
-                - alertname
-                - company
-                - site
-            group_wait: 5s
-            group_interval: 1m
-            repeat_interval: 5m
+# To restore these rules on a new install, POST each one to
+#   /api/v1/provisioning/alert-rules   with header  X-Disable-Provenance: true
+# after recreating the Slack contact point by hand. See RESTORE.md.
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "Slack Integration",
+      "folder": "Fleet Monitoring",
+      "interval": "10s",
+      "rules": [
+        {
+          "id": 1,
+          "uid": "cfmvv4vyka48wd",
+          "orgID": 1,
+          "folderUID": "efmvu7k60j6kgb",
+          "ruleGroup": "Slack Integration",
+          "title": "Fleet Temperature Excursion",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cfmk49pm86epsf",
+              "model": {
+                "datasource": {
+                  "type": "postgres",
+                  "uid": "cfmk49pm86epsf"
+                },
+                "editorMode": "code",
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "rawQuery": true,
+                "rawSql": "SELECT company, site, device_id, safe_range_f, excursion_f\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    d.company,\n    d.site,\n    COALESCE(d.display_name, t.device_id) AS device_id,\n    round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||\n      round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,\n    GREATEST(\n      t.temperature_c - d.temp_max_c,\n      d.temp_min_c - t.temperature_c\n    ) * 9.0/5.0 AS excursion_f\n  FROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest",
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "A",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "reducer": "last",
+                "refId": "B",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "C"
+                      ]
+                    },
+                    "reducer": {
+                      "params": [],
+                      "type": "last"
+                    },
+                    "type": "query"
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "B",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "C",
+                "type": "threshold"
+              }
+            },
+            {
+              "refId": "D",
+              "queryType": "",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cfmk49pm86epsf",
+              "model": {
+                "datasource": {
+                  "type": "postgres",
+                  "uid": "cfmk49pm86epsf"
+                },
+                "editorMode": "code",
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "rawQuery": true,
+                "rawSql": "SELECT company, site, device_id, safe_range_f, temperature_f\nFROM (\n  SELECT DISTINCT ON (t.device_id)\n    d.company,\n    d.site,\n    COALESCE(d.display_name, t.device_id) AS device_id,\n    round((d.temp_min_c * 9.0/5.0 + 32)::numeric, 1) || ' to ' ||\n      round((d.temp_max_c * 9.0/5.0 + 32)::numeric, 1) AS safe_range_f,\n    t.temperature_c * 9.0/5.0 + 32 AS temperature_f\n  FROM telemetry t JOIN devices d ON d.device_id = t.device_id AND d.is_active\n  WHERE t.recorded_at > now() - interval '30 minutes'\n  ORDER BY t.device_id, t.recorded_at DESC\n) latest",
+                "refId": "D"
+              }
+            },
+            {
+              "refId": "E",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "D",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "reducer": "last",
+                "refId": "E",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "type": "reduce"
+              }
+            }
+          ],
+          "updated": "2026-09-04T15:11:50Z",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "for": "0s",
+          "keep_firing_for": "0s",
+          "annotations": {
+            "description": "Reading {{ printf \"%.1f\" $values.E.Value }} \u00b0F. Safe range {{ $labels.safe_range_f }} \u00b0F. Currently {{ printf \"%.1f\" $values.B.Value }} \u00b0F outside the limit.",
+            "summary": "{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} out of range"
+          },
+          "labels": {
+            "severity": "critical"
+          },
+          "isPaused": false,
+          "notification_settings": {
+            "receiver": "Slack Integration",
+            "group_by": [
+              "alertname",
+              "company",
+              "site"
+            ],
+            "group_wait": "1s",
+            "group_interval": "10s",
+            "repeat_interval": "5m"
+          },
+          "record": null
+        },
+        {
+          "id": 2,
+          "uid": "efpnadcr4vim8f",
+          "orgID": 1,
+          "folderUID": "efmvu7k60j6kgb",
+          "ruleGroup": "Slack Integration",
+          "title": "Fleet Sensor Offline",
+          "condition": "C",
+          "data": [
+            {
+              "refId": "A",
+              "queryType": "",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cfmk49pm86epsf",
+              "model": {
+                "datasource": {
+                  "type": "postgres",
+                  "uid": "cfmk49pm86epsf"
+                },
+                "editorMode": "code",
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "rawQuery": true,
+                "rawSql": "SELECT\n  d.company, d.site, COALESCE(d.display_name, d.device_id) AS device_id,\n  EXTRACT(EPOCH FROM (now() - COALESCE(MAX(t.recorded_at), now() - interval '1 day')))\n    / GREATEST(d.expected_interval_s * 3, 60) AS silence_ratio\nFROM devices d\nLEFT JOIN telemetry t ON t.device_id = d.device_id\n AND t.recorded_at > now() - interval '6 hours'\nWHERE d.is_active\nGROUP BY d.company, d.site, d.device_id, d.display_name, d.expected_interval_s",
+                "refId": "A"
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "A",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "reducer": "last",
+                "refId": "B",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "type": "reduce"
+              }
+            },
+            {
+              "refId": "C",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        1
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "C"
+                      ]
+                    },
+                    "reducer": {
+                      "params": [],
+                      "type": "last"
+                    },
+                    "type": "query"
+                  }
+                ],
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "B",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "refId": "C",
+                "type": "threshold"
+              }
+            },
+            {
+              "refId": "D",
+              "queryType": "",
+              "relativeTimeRange": {
+                "from": 600,
+                "to": 0
+              },
+              "datasourceUid": "cfmk49pm86epsf",
+              "model": {
+                "datasource": {
+                  "type": "postgres",
+                  "uid": "cfmk49pm86epsf"
+                },
+                "editorMode": "code",
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "rawQuery": true,
+                "rawSql": "SELECT d.company, d.site, COALESCE(d.display_name, d.device_id) AS device_id, t.temperature_f\nFROM devices d\nLEFT JOIN LATERAL (\n  SELECT temperature_c * 9.0/5.0 + 32 AS temperature_f\n  FROM telemetry WHERE device_id = d.device_id\n  ORDER BY recorded_at DESC LIMIT 1\n) t ON true\nWHERE d.is_active",
+                "refId": "D"
+              }
+            },
+            {
+              "refId": "E",
+              "queryType": "expression",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "expression": "D",
+                "intervalMs": 1000,
+                "maxDataPoints": 43200,
+                "reducer": "last",
+                "refId": "E",
+                "settings": {
+                  "mode": "dropNN"
+                },
+                "type": "reduce"
+              }
+            }
+          ],
+          "updated": "2026-09-04T15:11:50Z",
+          "noDataState": "OK",
+          "execErrState": "Error",
+          "for": "0s",
+          "keep_firing_for": "0s",
+          "annotations": {
+            "description": "No readings arriving. Last known temperature {{ printf \"%.1f\" $values.E.Value }} \u00b0F. No data is being recorded for this unit.",
+            "summary": "{{ $labels.company }} - {{ $labels.site }}: {{ $labels.device_id }} offline"
+          },
+          "labels": {
+            "severity": "warning"
+          },
+          "isPaused": false,
+          "notification_settings": {
+            "receiver": "Slack Integration",
+            "group_by": [
+              "alertname",
+              "company",
+              "site"
+            ],
+            "group_wait": "1s",
+            "group_interval": "10s",
+            "repeat_interval": "5m"
+          },
+          "record": null
+        }
+      ]
+    }
+  ]
+}
