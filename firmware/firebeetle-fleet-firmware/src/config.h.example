@@ -42,12 +42,10 @@ const char* DISPLAY_NAME = "DOCK-DOOR-01";
 #define SITE_LAT 47.3073        // Auburn WA
 #define SITE_LON -122.2285
 
-// --- Optional: advisory limits for the local display only ---
-// The authoritative limits live in the devices table and are what actually
-// alert. These exist so somebody walking past can read OK/HIGH/LOW without
-// opening a dashboard. If they ever disagree, the database is right -- so keep
-// them in step, or comment them out and let the screen show only a temperature.
-#define DISPLAY_TEMP_MIN_F 26.6
-#define DISPLAY_TEMP_MAX_F 33.8
+// NOTE: the display deliberately shows no OK/HIGH/LOW verdict. Limits live in
+// the devices table and are edited in the admin UI, so any copy compiled in here
+// goes stale the moment a threshold changes -- and a screen disagreeing with the
+// dashboard about the same reading is worse than a screen that stays quiet.
+// The board reports the temperature; Grafana decides what it means.
 
 #endif

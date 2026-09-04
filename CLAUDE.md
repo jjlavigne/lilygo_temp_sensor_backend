@@ -472,6 +472,31 @@ Dashboard: http://localhost:3000/d/fleet-command-center/fleet-command-center
 Expect one offline alert per simulated device roughly 15 minutes after stopping the
 simulator — that is the staleness rule working correctly, not a fault.
 
+## The FireBeetle OLED shows measurements, never verdicts
+
+Layout: `DISPLAY_NAME` across the top, the temperature in Fahrenheit large in the
+middle, battery percentage bottom-right.
+
+**No OK/HIGH/LOW on the screen, deliberately.** It used to print one from
+`DISPLAY_TEMP_MIN_F`/`MAX_F` in `config.h` — compile-time constants, so editing a
+limit in the admin UI never reached the board. Those constants still said the old
+poultry limits (26.6/33.8 F) while the database had been changed to 50/85, which
+would have shown **HIGH** on the screen beside **OK** on the dashboard for the
+same reading. A device cannot know a tenant's limits — they live in `devices` and
+change without a reflash — so the board reports what it measured and Grafana
+decides what it means.
+
+**`DISPLAY_NAME` is not `DEVICE_ID`.** The screen prints `DISPLAY_NAME`; `DEVICE_ID`
+stays the MQTT client id and the join key for every row the board has written.
+Renaming the screen must never touch it. `DISPLAY_NAME` defaults to `DEVICE_ID`
+when undefined, so older configs are unaffected.
+
+**Bottom-right is battery, not link state.** `ONLINE` was the expected state and
+said nothing when true; when false, this screen is usually replaced by a
+connection screen anyway. `NO LINK` still takes that corner when it happens,
+because a stale reading shown as current is the one genuinely misleading thing
+the display can do. `USB` shows where there is no cell, matching the dashboard.
+
 ## Battery is absent on the FireBeetle by design
 
 `Freezer-FireBeetle-001` (`PLY-REAL-SENSOR-01`) reports **no** `battery_pct` — every

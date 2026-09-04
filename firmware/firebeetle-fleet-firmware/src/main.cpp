@@ -167,28 +167,6 @@ void showReading(float tempC, bool linkUp, int batteryPct) {
     u8g2.setFont(u8g2_font_7x13B_tf);
     u8g2.drawStr(groupX + numW + 4, 44, "F");
 
-#ifdef DISPLAY_TEMP_MIN_F
-    // Advisory only. The authoritative limits live in the devices table and are
-    // evaluated by Grafana; these exist so somebody walking past can tell at a
-    // glance. If the two ever disagree, the database is right.
-    //
-    // ⚠️ These are COMPILE-TIME constants. Changing a device's limits in the
-    // admin UI does NOT reach this screen -- it needs a reflash. Leave
-    // DISPLAY_TEMP_MIN_F/MAX_F undefined to omit this line entirely, which is
-    // the safer choice for any unit whose limits get tuned, because a screen
-    // reading OK beside a dashboard reading ABOVE THRESHOLD is worse than a
-    // screen that stays quiet.
-    // y=61 not 62: at 64px tall, descenders on the bottom row clip at 62.
-    u8g2.setFont(u8g2_font_6x12_tf);
-    if (tempF > DISPLAY_TEMP_MAX_F) {
-        u8g2.drawStr(X_LEFT, 61, "HIGH");
-    } else if (tempF < DISPLAY_TEMP_MIN_F) {
-        u8g2.drawStr(X_LEFT, 61, "LOW");
-    } else {
-        u8g2.drawStr(X_LEFT, 61, "OK");
-    }
-#endif
-
     // Bottom right shows the battery, because "ONLINE" earned its space poorly:
     // when the link is up it is the expected state and tells you nothing, and
     // when it is down this screen is usually replaced by a connection status
