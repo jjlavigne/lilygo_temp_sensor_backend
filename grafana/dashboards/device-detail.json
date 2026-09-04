@@ -159,6 +159,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "cfmk49pm86epsf"
       },
+      "description": "Blank means the device does not report a battery level, which is correct for a mains-powered unit \u2014 it has no cell to measure. It is not a missing reading.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -166,6 +167,7 @@
           },
           "max": 100,
           "min": 0,
+          "noValue": "USB",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -183,8 +185,7 @@
               }
             ]
           },
-          "unit": "percent",
-          "noValue": "mains"
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -225,8 +226,7 @@
         }
       ],
       "title": "Battery",
-      "type": "stat",
-      "description": "Blank means the device does not report a battery level, which is correct for a mains-powered unit \u2014 it has no cell to measure. It is not a missing reading."
+      "type": "stat"
     },
     {
       "datasource": {
@@ -769,5 +769,5 @@
   "timezone": "browser",
   "title": "Device Detail",
   "uid": "device-detail",
-  "version": 6
+  "version": 7
 }

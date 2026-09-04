@@ -469,7 +469,7 @@
               },
               {
                 "id": "noValue",
-                "value": "mains"
+                "value": "USB"
               }
             ]
           },
@@ -692,5 +692,5 @@
   "timezone": "browser",
   "title": "Site View",
   "uid": "site-view",
-  "version": 12
+  "version": 13
 }

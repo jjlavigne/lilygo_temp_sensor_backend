@@ -377,7 +377,7 @@
               },
               {
                 "id": "noValue",
-                "value": "mains"
+                "value": "USB"
               }
             ]
           },
@@ -1126,5 +1126,5 @@
   "timezone": "browser",
   "title": "Fleet Command Center",
   "uid": "fleet-command-center",
-  "version": 25
+  "version": 26
 }

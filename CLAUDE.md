@@ -484,8 +484,9 @@ confirmed against DFRobot's pinout**, and a wrong pin yields a plausible-looking
 but meaningless percentage — worse than no reading at all on a compliance screen.
 It is also moot while the board runs on USB, which it must to publish every 5 s.
 
-Panels show `mains` rather than blank where battery is NULL, so it reads as a
-deliberate absence instead of a missing reading. The Battery Levels bargauge
+Panels show `USB` rather than blank where battery is NULL, so it reads as a
+deliberate absence instead of a missing reading. (It briefly said `mains`, which
+is a British term for wall power and read as a typo to an American audience.) The Battery Levels bargauge
 filters NULLs out entirely, so no empty bar appears.
 
 To enable it: confirm the pin, set `BATTERY_ADC_PIN`, reflash, and run the board
