@@ -576,6 +576,27 @@ historical reading and what the firmware publishes; changing it orphans the data
 
 **Retiring is a soft delete** (`devices.is_active = false`). Readings are kept.
 
+**⚠️ Gunicorn must run `gthread`, not the default sync worker.** A sync worker
+handles one connection at a time and blocks in `recv()` until that connection
+sends a request. Browsers open speculative *preconnect* sockets that may never
+send anything, so each one occupied a whole worker until gunicorn's timeout killed
+it — with `-w 2` a browser could tie up both, and the next click returned an error
+page. Retrying worked because replacement workers had booted by then, which is why
+it looked random.
+
+The tell in `docker compose logs device-admin` is `WORKER TIMEOUT` followed by
+`Error handling request (no URI read)` — *no URI* means the worker died waiting
+for a request rather than while serving one, so it is never an application bug.
+Application errors would show a traceback through `/app/app.py` instead.
+
+Reproduce with two idle sockets and no data sent:
+
+```python
+import socket, urllib.request
+idle = [socket.create_connection(("localhost", 8080)) for _ in range(2)]
+urllib.request.urlopen("http://localhost:8080/health", timeout=12)  # hangs if sync
+```
+
 Fleet Command Center, Site View and both alert rules filter on `d.is_active`,
 so a retired device stops cluttering operations and stops alerting. **Any new
 operational query joining `devices` must include that filter**, or retired units
